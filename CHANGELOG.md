@@ -1,3 +1,15 @@
+# Cybermonkey 1.2.0
+
+**Cybermonkey arrive sous Windows** (Windows 10/11, x64) avec un installateur NSIS.
+
+- **Installateur Windows** `Cybermonkey-1.2.0-win-x64.exe` (par utilisateur, dossier modifiable, raccourcis). Non signé : SmartScreen demande « Informations complémentaires → Exécuter quand même ». Construit sur un vrai runner Windows, avec typecheck, 84 tests, test de fumée du paquet (binaires natifs Appium, Claude Code, Codex, Copilot, sharp présents et chargés) et démarrage de l'app vérifié.
+- **Android sous Windows** : SDK détecté automatiquement (`%LOCALAPPDATA%\Android\Sdk`, `ANDROID_HOME`), JDK d'Android Studio ou installé (Temurin, Microsoft, Zulu…) détecté, `adb` retrouvé même hors du PATH. Création IA, enregistrement, import, campagnes, imprévus, environnements, MCP, vidéo, journal (logcat) et comparaison visuelle fonctionnent.
+- **iOS n'est pas pris en charge sous Windows** : simulateurs, compilation de WebDriverAgent et détection des iPhone exigent macOS et Xcode. Un mode avancé (WDA externe, iOS 18+, tunnel RemoteXPC) reste dans les réglages, ni testé ni garanti.
+- Fenêtre : cadre natif Windows (boutons réduire/agrandir/fermer), barre de menus masquée (Alt pour l'afficher). Mises à jour intégrées : ouvrent l'installateur Windows.
+- CI sur macOS **et** Windows ; le workflow *Windows installer* attache l'installateur à chaque release publiée.
+- Corrigé : le fichier de verrouillage ne contenait que les binaires natifs de macOS (`npm ci` échouait sous Windows) ; les binaires `win32-x64` sont maintenant déclarés.
+- Documentation : README, page Aide (installation et Android sous Windows), page Fonctionnalités (tableau des limites macOS / Windows).
+
 # Cybermonkey 1.1.0
 
 Cette version rend les tests plus **tenaces** (imprévus, relances, historique), plus **expressifs** (nouveaux pas, logique, environnements) et plus **faciles à diagnostiquer** (vidéo, journal, comparaison visuelle).

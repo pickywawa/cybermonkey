@@ -2,9 +2,6 @@ name: Windows installer
 # Builds the Windows (x64) installer on a real Windows runner and attaches it to the release.
 # Runs when a release is published, or by hand (give a tag to attach to a release; leave it empty to only build).
 on:
-  # temporary: lets the branch be tested before the workflow exists on main
-  push:
-    branches: [windows-port]
   release:
     types: [published]
   workflow_dispatch:
