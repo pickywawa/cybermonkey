@@ -33,8 +33,10 @@ jobs:
         shell: pwsh
         run: |
           $env:ELECTRON_RUN_AS_NODE = '1'
-          & ./release/win-unpacked/Cybermonkey.exe ./scripts/smoke-packaged.cjs ./release/win-unpacked
-          if ($LASTEXITCODE -ne 0) { throw "smoke test failed ($LASTEXITCODE)" }
+          # Cybermonkey.exe is a GUI-subsystem program: wait for it explicitly to get its output and exit code.
+          $p = Start-Process ./release/win-unpacked/Cybermonkey.exe -ArgumentList @('./scripts/smoke-packaged.cjs', './release/win-unpacked') -Wait -PassThru -RedirectStandardOutput smoke.out -RedirectStandardError smoke.err
+          Get-Content smoke.out, smoke.err
+          if ($p.ExitCode -ne 0) { throw "smoke test failed (exit code $($p.ExitCode))" }
       - name: Start the packaged app and make sure it stays up
         shell: pwsh
         run: |
