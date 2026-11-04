@@ -23,9 +23,9 @@ Notifications « régression » et tickets utilisent cette même définition.
 
 Jetons, clés d’API, mots de passe SMTP et URLs de webhooks **ne sont jamais** dans les réglages ni dans le projet (que vous pourriez pousser sur git). Ils sont enregistrés à part, dans `integrations/secrets.json` du dossier de données de l’application :
 
-- **chiffrés par le système** (Trousseau macOS, DPAPI Windows, libsecret) quand il est disponible, sinon protégés par les droits du fichier (lecture réservée à l’utilisateur) ;
+- **chiffrés par le système** (Trousseau macOS, DPAPI Windows, libsecret) quand il est disponible, sinon protégés par les droits du fichier (lecture réservée à l’utilisateur). Le trousseau n’est sollicité qu’**au moment d’enregistrer ou de lire un secret**, jamais au lancement ni quand une page de réglages demande seulement « est-il renseigné ? » : macOS peut demander l’autorisation à ce moment-là ;
 - la fenêtre sait seulement si un secret est **renseigné ou non** : elle ne le revoit jamais ;
-- **en CI**, une variable d’environnement l’emporte sur le fichier. C’est la bonne pratique : le secret vient du coffre de votre CI. Le lanceur Node autonome (`npm run cli`) ne peut pas lire les secrets chiffrés par l’application (le chiffrement système n’existe que dans Electron) : avec lui, utilisez les variables d’environnement ; avec `Cybermonkey --cli`, les deux fonctionnent.
+- **en CI**, une variable d’environnement l’emporte sur le fichier. C’est la bonne pratique : le secret vient du coffre de votre CI. **En ligne de commande, le trousseau n’est pas utilisé** (un job ne doit jamais attendre une fenêtre d’autorisation) : les secrets enregistrés chiffrés par l’application ne sont donc pas lisibles, utilisez les variables d’environnement. Pour les utiliser quand même depuis votre poste, `CYBERMONKEY_KEYCHAIN=1` avec `Cybermonkey --cli`. Le lanceur Node autonome (`npm run cli`) n’a jamais accès au chiffrement système.
 
 | Secret                   | Variable d’environnement       |
 | ------------------------ | ------------------------------ |

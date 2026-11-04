@@ -41,7 +41,7 @@ app
       userData: paths.userData,
       documents: paths.documents,
       emit,
-      cipher: await electronCipher(),
+      cipher: electronCipher(),
       interactive: true,
       openAuthUrl: async (url) => {
         const parsed = new URL(url);

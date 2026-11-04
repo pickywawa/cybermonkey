@@ -58,7 +58,7 @@ Adresse (`https://labo:4723`), authentification (aucune, utilisateur + mot de pa
 
 ## Secrets
 
-Clés d’accès, mots de passe et jetons sont stockés **à part** des réglages et du projet (chiffrés par le système quand c’est possible), comme les secrets des [intégrations](integrations.md). En CI, une variable d’environnement l’emporte :
+Clés d’accès, mots de passe et jetons sont stockés **à part** des réglages et du projet (chiffrés par le système quand c’est possible, détails dans les [intégrations](integrations.md#secrets)), comme les secrets des [intégrations](integrations.md). En CI, une variable d’environnement l’emporte :
 
 | Secret               | Variable Cybermonkey               | Variable standard du fournisseur |
 | -------------------- | ---------------------------------- | -------------------------------- |

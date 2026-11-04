@@ -29,8 +29,15 @@ export interface Cipher {
 /**
  * Tokens and webhook URLs, kept apart from `settings` (which the window receives whole and which can be exported).
  * Written with owner-only permissions; encrypted with the OS keychain when a cipher is provided (the desktop app does).
+ *
+ * The keychain is touched as late as possible: macOS asks the person to allow it, which must never happen at launch,
+ * when a settings page merely asks « is it set? », or in a CI job. Values are decrypted on first use only.
  */
 export class SecretStore {
+  /** What is on disk (ciphertext when `encrypted`). */
+  private raw: Record<string, string> = {};
+  private encrypted = false;
+  /** Readable values, filled lazily. */
   private values = new Map<SecretKey, string>();
   private loaded = false;
   private writing: Promise<unknown> = Promise.resolve();
@@ -43,52 +50,70 @@ export class SecretStore {
     if (this.loaded) return;
     this.loaded = true;
     try {
-      const raw = JSON.parse(await fs.readFile(this.file, 'utf8')) as {
+      const file = JSON.parse(await fs.readFile(this.file, 'utf8')) as {
         encrypted?: boolean;
         values?: Record<string, string>;
       };
+      this.encrypted = !!file.encrypted;
       for (const key of SECRET_KEYS) {
-        const stored = raw.values?.[key];
+        const stored = file.values?.[key];
         if (!stored) continue;
-        try {
-          this.values.set(key, raw.encrypted ? this.require().decrypt(stored) : stored);
-        } catch {
-          /* unreadable (another user / keychain reset): treated as not set */
-        }
+        this.raw[key] = stored;
+        if (!this.encrypted) this.values.set(key, stored);
       }
     } catch {
       /* no file yet */
     }
   }
-  private require() {
-    if (!this.cipher) throw new Error('Secrets chiffrés mais aucun chiffrement disponible');
-    return this.cipher;
+  /** The readable value of a stored secret; decrypts (and so may reach the keychain) on first use. */
+  private read(key: SecretKey): string | undefined {
+    const known = this.values.get(key);
+    if (known !== undefined) return known;
+    const stored = this.raw[key];
+    if (!stored || !this.encrypted || !this.cipher) return undefined;
+    try {
+      const plain = this.cipher.decrypt(stored);
+      this.values.set(key, plain);
+      return plain;
+    } catch {
+      return undefined; // another user / keychain reset / refused: treated as not readable
+    }
   }
 
   async get(key: SecretKey): Promise<string | undefined> {
     const fromEnv = fromEnvironment(key);
     if (fromEnv) return fromEnv;
     await this.load();
-    return this.values.get(key);
+    return this.read(key);
   }
+  /** Which secrets exist. Never decrypts: opening a settings page must not trigger a keychain prompt. */
   async has(): Promise<Record<SecretKey, boolean>> {
     await this.load();
     return Object.fromEntries(
-      SECRET_KEYS.map((k) => [k, this.values.has(k) || !!fromEnvironment(k)]),
+      SECRET_KEYS.map((k) => [k, k in this.raw || this.values.has(k) || !!fromEnvironment(k)]),
     ) as Record<SecretKey, boolean>;
   }
   async set(key: SecretKey, value: string | null) {
     await this.load();
+    // Rewriting the file needs every value in the clear.
+    for (const k of Object.keys(this.raw) as SecretKey[]) if (k !== key) this.read(k);
     const trimmed = value?.trim();
     if (trimmed) this.values.set(key, trimmed);
     else this.values.delete(key);
-    const encrypted = !!this.cipher;
-    const body = JSON.stringify({
-      encrypted,
-      values: Object.fromEntries(
-        [...this.values].map(([k, v]) => [k, encrypted ? this.cipher!.encrypt(v) : v]),
-      ),
-    });
+    const entries = [...this.values];
+    let encrypted = false;
+    let stored = Object.fromEntries(entries);
+    if (this.cipher) {
+      try {
+        stored = Object.fromEntries(entries.map(([k, v]) => [k, this.cipher!.encrypt(v)]));
+        encrypted = true;
+      } catch {
+        /* no keychain on this system: owner-only plaintext is the fallback */
+      }
+    }
+    this.raw = stored;
+    this.encrypted = encrypted;
+    const body = JSON.stringify({ encrypted, values: stored });
     this.writing = this.writing
       .catch(() => {})
       .then(async () => {

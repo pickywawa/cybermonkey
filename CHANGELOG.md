@@ -15,7 +15,7 @@
 - **Notifications Slack, Teams, e-mail (SMTP)** : régression (un message par exécution), échec de test (désactivé par défaut, plafonné), avancement par paliers (5/10/20/25/50 %, chacun une fois), fin d'exécution ; analyse IA, capture et vidéo en option (captures et vidéos par e-mail seulement).
 - **TestRail et Azure Test Plans** : renvoi des résultats pour les scénarios liés à un cas par import (jamais / avec confirmation / automatique). Non éprouvé sur une instance réelle. Squash TM n'est pas pris en charge.
 - **Tickets Jira et GitHub** sur régression : un ticket par exécution ou par étape, jamais de doublon tant que le ticket est ouvert, champs Jira supplémentaires en JSON, et rédaction par l'IA à partir de vos instructions (champs personnalisés décrits en texte libre, exemple `curl`) ; Cybermonkey valide la réponse et envoie lui-même la requête.
-- **Secrets** stockés à part, chiffrés par le système quand c'est possible, et lisibles depuis l'environnement en CI (`CYBERMONKEY_JIRA_TOKEN`…) ; les valeurs des variables de projet sensibles sont masquées dans tous les messages.
+- **Secrets** stockés à part, chiffrés par le système quand c'est possible (le trousseau n'est sollicité qu'à l'enregistrement ou à la lecture d'un secret, jamais au lancement ni en ligne de commande), et lisibles depuis l'environnement en CI (`CYBERMONKEY_JIRA_TOKEN`…) ; les valeurs des variables de projet sensibles sont masquées dans tous les messages.
 - Utilisable en ligne de commande : notifications, résultats et tickets partent à la fin de `cybermonkey run`, qui les attend avant de quitter.
 - Documentation : [docs/integrations.md](docs/integrations.md).
 

@@ -135,10 +135,11 @@ test('secrets: kept apart, owner-only, encrypted when a cipher exists, overridab
   );
   if (process.platform !== 'win32') assert.equal(statSync(file).mode & 0o077, 0, 'owner only');
   assert.equal((await new SecretStore(file, cipher).has()).jiraToken, true);
+  assert.equal((await new SecretStore(file).has()).jiraToken, true, 'listed as set');
   assert.equal(
-    (await new SecretStore(file).has()).jiraToken,
-    false,
-    'unreadable without the cipher',
+    await new SecretStore(file).get('jiraToken'),
+    undefined,
+    'but unreadable without the cipher',
   );
   process.env[envName('githubToken')] = 'from-ci';
   try {
@@ -1506,4 +1507,39 @@ test('activity log and errors follow the app language', async () => {
     followLanguage(() => 'fr');
   }
   assert.match((await inspect(path.join(tmp(), 'missing'))).error ?? '', /Dossier introuvable/);
+});
+
+test('secrets: asking what is set never decrypts, decryption happens on first use, and a missing keychain falls back to a file', async () => {
+  const file = path.join(tmp(), 'lazy.json');
+  const calls = { encrypt: 0, decrypt: 0 };
+  const cipher = {
+    encrypt: (s: string) => (calls.encrypt++, 'enc:' + Buffer.from(s).toString('base64')),
+    decrypt: (s: string) => (calls.decrypt++, Buffer.from(s.slice(4), 'base64').toString()),
+  };
+  await new SecretStore(file, cipher).set('jiraToken', 'tok-123456');
+  calls.decrypt = 0;
+  const reopened = new SecretStore(file, cipher);
+  assert.equal((await reopened.has()).jiraToken, true);
+  assert.equal(
+    calls.decrypt,
+    0,
+    'the settings page asking « is it set? » never reaches the keychain',
+  );
+  assert.equal(await reopened.get('jiraToken'), 'tok-123456');
+  assert.equal(calls.decrypt, 1);
+  await reopened.get('jiraToken');
+  assert.equal(calls.decrypt, 1, 'cached after the first read');
+  // No keychain on this system: the secret is still saved, in the owner-only file.
+  const bare = path.join(tmp(), 'bare.json');
+  const broken = {
+    encrypt: () => {
+      throw new Error('no keychain');
+    },
+    decrypt: () => {
+      throw new Error('no keychain');
+    },
+  };
+  await new SecretStore(bare, broken).set('githubToken', 'ghp_abcdef');
+  assert.equal(JSON.parse(readFileSync(bare, 'utf8')).encrypted, false);
+  assert.equal(await new SecretStore(bare).get('githubToken'), 'ghp_abcdef');
 });
