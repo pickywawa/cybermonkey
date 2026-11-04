@@ -1,0 +1,39 @@
+name: Windows installer
+# Builds the Windows (x64) installer on a real Windows runner and attaches it to the release.
+# Runs when a release is published, or by hand (give a tag to attach to a release; leave it empty to only build).
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attach the installer to (e.g. v1.2.0). Empty = build only.'
+        required: false
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run dist:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cybermonkey-windows-installer
+          path: release/Cybermonkey-*-win-x64.exe
+          retention-days: 7
+      - name: Attach the installer to the release
+        if: env.TAG != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" release/Cybermonkey-*-win-x64.exe --clobber

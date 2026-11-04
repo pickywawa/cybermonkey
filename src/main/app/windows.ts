@@ -60,8 +60,13 @@ export class WindowManager {
       title: TITLES[kind],
       icon: this.icon,
       backgroundColor: '#16171d',
-      titleBarStyle: auxiliary ? 'default' : 'hiddenInset',
-      trafficLightPosition: { x: 16, y: 17 },
+      // macOS: the title bar blends into the app. Elsewhere the native frame keeps its window controls.
+      ...(process.platform === 'darwin'
+        ? {
+            titleBarStyle: auxiliary ? ('default' as const) : ('hiddenInset' as const),
+            trafficLightPosition: { x: 16, y: 17 },
+          }
+        : { autoHideMenuBar: true }),
       webPreferences: {
         preload: path.join(import.meta.dirname, '../../preload/index.cjs'),
         nodeIntegration: false,

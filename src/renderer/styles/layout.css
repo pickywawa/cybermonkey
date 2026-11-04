@@ -167,3 +167,8 @@
   font-size: 11px;
   font-weight: 600;
 }
+
+/* Native window frame (Windows, Linux): nothing to leave room for on the left. */
+[data-os='other'] .titlebar {
+  padding-left: 14px;
+}

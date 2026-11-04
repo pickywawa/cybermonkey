@@ -32,9 +32,14 @@ export async function createUpdater(c: Container, mainWindow: () => BrowserWindo
         message: fr
           ? 'Ouvrir l’installateur et fermer Cybermonkey ?'
           : 'Open the installer and close Cybermonkey?',
-        detail: fr
-          ? 'Sur macOS, glissez Cybermonkey dans Applications et remplacez la version existante. Vos projets et paramètres sont conservés.'
-          : 'On macOS, drag Cybermonkey into Applications and replace the existing version. Your projects and settings are preserved.',
+        detail:
+          process.platform === 'win32'
+            ? fr
+              ? 'L’installateur Windows remplace la version existante. Vos projets et paramètres sont conservés.'
+              : 'The Windows installer replaces the existing version. Your projects and settings are preserved.'
+            : fr
+              ? 'Sur macOS, glissez Cybermonkey dans Applications et remplacez la version existante. Vos projets et paramètres sont conservés.'
+              : 'On macOS, drag Cybermonkey into Applications and replace the existing version. Your projects and settings are preserved.',
         buttons: fr
           ? ['Ouvrir et fermer Cybermonkey', 'Plus tard']
           : ['Open and close Cybermonkey', 'Later'],
