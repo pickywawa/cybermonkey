@@ -37,7 +37,7 @@ Détails : [Fonctionnalités](https://pickywawa.github.io/cybermonkey/fonctionna
 
 ## Serveur MCP
 
-Cybermonkey embarque un **serveur MCP** de **45 outils** (activé par défaut, local, protégé par un jeton, désactivable en entier dans *Réglages → MCP* ; chaque outil se coche/décoche dans son groupe). Une IA appelante peut lister les scénarios, trouver le chemin pour atteindre une étape, déplacer l’application sur un écran, rejouer n’importe quel élément dans n’importe quel ordre, lire des résultats structurés (étape en échec, capture, analyse), explorer et cliquer sur les appareils, et créer puis vérifier de nouveaux scénarios, sur les deux OS à la fois. Voir [docs/mcp.md](docs/mcp.md).
+Cybermonkey embarque un **serveur MCP** de **45 outils** (activé par défaut, local, protégé par un jeton, désactivable en entier dans _Réglages → MCP_ ; chaque outil se coche/décoche dans son groupe). Une IA appelante peut lister les scénarios, trouver le chemin pour atteindre une étape, déplacer l’application sur un écran, rejouer n’importe quel élément dans n’importe quel ordre, lire des résultats structurés (étape en échec, capture, analyse), explorer et cliquer sur les appareils, et créer puis vérifier de nouveaux scénarios, sur les deux OS à la fois. Voir [docs/mcp.md](docs/mcp.md).
 
 ```sh
 claude mcp add --transport http cybermonkey http://127.0.0.1:4750/mcp --header "Authorization: Bearer <jeton>"
@@ -45,7 +45,21 @@ claude mcp add --transport http cybermonkey http://127.0.0.1:4750/mcp --header "
 
 ## Télécharger
 
-**[Cybermonkey 1.1.0 pour macOS Apple Silicon](https://github.com/pickywawa/cybermonkey/releases/latest)** : ouvrez le DMG, glissez Cybermonkey dans Applications. Signature locale sans notarisation Apple : au premier lancement, **Réglages Système → Confidentialité et sécurité → Ouvrir quand même**. Windows, Linux et Intel : compilation depuis les sources. Les mises à jour sont proposées dans l’application.
+| Système                   | Installateur                                                                                      | Remarques                                                                                                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **macOS** (Apple Silicon) | [`Cybermonkey-<version>-mac-arm64.dmg`](https://github.com/pickywawa/cybermonkey/releases/latest) | Ouvrez le DMG, glissez Cybermonkey dans Applications. Signature locale sans notarisation Apple : au premier lancement, **Réglages Système → Confidentialité et sécurité → Ouvrir quand même**. |
+| **Windows** (x64)         | [`Cybermonkey-<version>-win-x64.exe`](https://github.com/pickywawa/cybermonkey/releases/latest)   | Installateur NSIS (par utilisateur, dossier modifiable). **Non signé** : SmartScreen affiche « Windows a protégé votre ordinateur » → **Informations complémentaires → Exécuter quand même**.  |
+| Linux, Mac Intel          | compilation depuis les sources                                                                    | Voir _Développement_ plus bas.                                                                                                                                                                 |
+
+Les mises à jour intégrées détectent les versions stables suivantes et ouvrent l'installateur de votre système.
+
+### Ce qui fonctionne sous Windows
+
+Cybermonkey tourne sous Windows 10/11 et pilote les appareils et émulateurs **Android** : création par IA, enregistrement, import, campagnes, gestion des imprévus, environnements, serveur MCP, vidéo, journal (logcat) et comparaison visuelle fonctionnent.
+
+**iOS ne fonctionne pas sous Windows.** Les simulateurs iOS, la compilation de WebDriverAgent et la détection des appareils reposent sur Xcode (`simctl`, `devicectl`, `xcodebuild`), qui n'existe que sur macOS. Un mode avancé (WDA préinstallé ou externe pour un iPhone iOS 18+ avec un tunnel RemoteXPC, voir la [documentation Appium XCUITest](https://appium.github.io/appium-xcuitest-driver/latest/guides/non-macos-hosts/)) figure dans les réglages mais n'est **ni testé ni garanti**. Utilisez un Mac pour iOS.
+
+Autres points : le SDK Android (`%LOCALAPPDATA%\Android\Sdk`) et le JDK intégré d'Android Studio sont détectés automatiquement ; sinon installez platform-tools et un JDK (`winget install Google.PlatformTools EclipseAdoptium.Temurin.21.JDK`) ou renseignez `ANDROID_HOME` / `JAVA_HOME`. L'installateur Windows est construit et testé unitairement sur les runners Windows de GitHub ; les exécutions sur appareils ont été validées sous macOS.
 
 <p align="center"><img src="site/assets/screenshots/synthese.png" width="49%" alt="Synthèse IA"> <img src="site/assets/screenshots/cartographie.png" width="49%" alt="Cartographie"></p>
 

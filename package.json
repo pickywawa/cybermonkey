@@ -134,5 +134,16 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/pickywawa/cybermonkey.git"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/claude-agent-sdk-win32-x64": "0.3.312",
+    "@esbuild/win32-x64": "0.28.2",
+    "@github/copilot-sdk-win32-x64": "1.0.26",
+    "@github/copilot-win32-x64": "1.0.103",
+    "@img/sharp-win32-x64": "0.35.5",
+    "@koromix/koffi-win32-x64": "3.2.1",
+    "@openai/codex-win32-x64": "npm:@openai/codex@0.164.0-win32-x64",
+    "@rolldown/binding-win32-x64-msvc": "1.2.15",
+    "lightningcss-win32-x64-msvc": "1.33.0"
   }
 }
