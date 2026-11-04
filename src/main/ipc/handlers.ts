@@ -7,6 +7,7 @@ import {
   applicationDetailsSchema,
   applicationsSchema,
   chatSessionSchema,
+  environmentSchema,
   focusSchema,
   projectInput,
   projectNameSchema,
@@ -16,9 +17,13 @@ import { settingsSchema } from '../../shared/domain/settings.js';
 import { variablesSchema } from '../../shared/domain/variables.js';
 import type { Contract } from '../../shared/ipc.js';
 import type { Container } from '../container.js';
+import { compareWithLastSuccess } from '../engine/execution/compare.js';
 import { DIAGNOSE_SYSTEM } from '../engine/prompts.js';
+import type { OS } from '../../shared/domain/scenario.js';
+import { effectiveVariables } from '../../shared/domain/project.js';
 import type { Updater } from '../infra/updater/updater.js';
 import type { WindowManager } from '../app/windows.js';
+import type { McpService } from '../mcp/server.js';
 import type { Ipc } from './registry.js';
 
 const DOCS = {
@@ -52,6 +57,7 @@ export function registerHandlers(
   c: Container,
   windows: WindowManager,
   updater: () => Updater,
+  mcp: McpService,
 ) {
   const mutated = async <T>(work: Promise<T>) => {
     const result = await work;
@@ -64,16 +70,23 @@ export function registerHandlers(
   ipc.handle('workspace.load', () => c.store.state);
   ipc.handle(
     'settings.save',
-    (s) =>
-      mutated(
+    async (s) => {
+      const saved = await mutated(
         c.store.saveSettings({
           ...s,
           devicesDetached: c.store.state.settings.devicesDetached,
           aiDetached: c.store.state.settings.aiDetached,
+          // The token is only ever changed by "mcp.regenerateToken".
+          mcpToken: c.store.state.settings.mcpToken,
         }),
-      ),
+      );
+      await mcp.apply();
+      return saved;
+    },
     settingsSchema,
   );
+  ipc.handle('mcp.status', () => mcp.status());
+  ipc.handle('mcp.regenerateToken', () => mutated(c.store.regenerateMcpToken()));
 
   /* projects */
   ipc.handle('projects.create', (p) => mutated(c.store.create(p)), projectInput);
@@ -89,6 +102,8 @@ export function registerHandlers(
       applications: applicationsSchema.optional(),
       applicationDetails: applicationDetailsSchema.optional(),
       variables: variablesSchema.optional(),
+      environments: z.array(environmentSchema).max(20).optional(),
+      activeEnvironmentId: z.string().nullable().optional(),
       chatSessions: z.array(chatSessionSchema).max(500).optional(),
       activeChatSessionId: z.string().nullable().optional(),
       activeCampaignId: z.string().uuid().nullable().optional(),
@@ -157,15 +172,22 @@ export function registerHandlers(
   ipc.handle(
     'devices.perform',
     (p) =>
-      c.automation.perform(
-        p.deviceId,
-        p.variant,
-        p.kind,
-        undefined,
-        undefined,
-        p.projectId ? c.store.get(p.projectId).variables : {},
-        true,
-      ),
+      c.automation
+        .perform(
+          p.deviceId,
+          p.variant,
+          p.kind,
+          undefined,
+          undefined,
+          p.projectId ? effectiveVariables(c.store.get(p.projectId)) : {},
+          true,
+          p.projectId
+            ? c.store.get(p.projectId).applications?.[
+                c.devices.known.get(p.deviceId)?.platform as OS
+              ]
+            : undefined,
+        )
+        .then((out) => (typeof out === 'string' ? out : null)),
     z.object({
       deviceId: z.string(),
       projectId: z.string().optional(),
@@ -256,6 +278,18 @@ export function registerHandlers(
   ipc.handle('runs.screenshot', async (i) => {
     const campaignId = i.campaignId ?? c.store.get(i.projectId).activeCampaignId;
     return campaignId ? c.campaigns.screenshot({ ...i, campaignId }) : null;
+  });
+  ipc.handle('runs.video', async (i) => {
+    const campaignId = i.campaignId ?? c.store.get(i.projectId).activeCampaignId;
+    return campaignId ? c.campaigns.video({ ...i, campaignId }) : null;
+  });
+  ipc.handle('runs.compare', async (i) => {
+    const campaignId = i.campaignId ?? c.store.get(i.projectId).activeCampaignId;
+    if (!campaignId) return null;
+    return compareWithLastSuccess(
+      { campaigns: c.campaigns, loadCampaign: (p, id) => c.runner.loadCampaign(p, id) },
+      { ...i, campaignId },
+    );
   });
   ipc.handle('runs.applyHealing', (i) => mutated(c.runner.applyHealing(i)));
   const replaySelections = new Map<string, Contract['replay.current'][1]>();

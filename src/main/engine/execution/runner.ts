@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { activeOs, type Project } from '../../../shared/domain/project.js';
+import {
+  activeEnvironment,
+  activeOs,
+  effectiveVariables,
+  type Project,
+} from '../../../shared/domain/project.js';
 import type { RunReport } from '../../../shared/domain/report.js';
 import {
   flatten,
@@ -7,6 +12,7 @@ import {
   updateNode,
   type OS,
   type ScenarioNode,
+  isSupportScenario,
 } from '../../../shared/domain/scenario.js';
 import { validateScreenDefinitions } from '../../../shared/domain/screens.js';
 import type { Settings } from '../../../shared/domain/settings.js';
@@ -20,7 +26,9 @@ import { deviceContext } from '../device-context.js';
 import { translator } from '../i18n.js';
 import type { StartRecoveryAgent } from '../creation/recovery.js';
 import { Analyzer, formatAnalysis } from './analysis.js';
+import { partialRoot } from './roots.js';
 import { DeviceRun } from './device-run.js';
+import { AiInterruptionAdvisor } from './interruption-ai.js';
 import { Healer } from './healing.js';
 
 /** Run lifecycle: validation, device leases, persistence, cancellation, campaign access. */
@@ -32,6 +40,7 @@ export class Runner {
   private maintenance = new Set<string>();
   readonly analyzer: Analyzer;
   private healer: Healer;
+  private advisor: AiInterruptionAdvisor;
   private t: ReturnType<typeof translator>;
 
   constructor(
@@ -48,9 +57,30 @@ export class Runner {
   ) {
     this.analyzer = new Analyzer(deps.hub, deps.settings);
     this.healer = new Healer(deps.hub, deps.settings);
+    this.advisor = new AiInterruptionAdvisor(deps.hub, deps.settings);
     this.t = translator(deps.settings);
   }
 
+  /** Snapshot of a run (live while running, final afterwards), or undefined if unknown to this session. */
+  getReport(runId: string) {
+    const report = this.reports.get(runId);
+    return report && structuredClone(report);
+  }
+  /** Resolves when the given run is over (or after `timeoutMs`); returns whether it finished. */
+  async waitForRun(runId: string, timeoutMs: number, onTick?: (report: RunReport) => void) {
+    const deadline = Date.now() + timeoutMs;
+    while (this.active?.report.id === runId) {
+      if (Date.now() > deadline) return false;
+      onTick?.(this.active.report);
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    await this.task;
+    await this.persistence;
+    return true;
+  }
+  currentRunId() {
+    return this.active?.report.id;
+  }
   isRunning() {
     return !!this.active;
   }
@@ -187,7 +217,9 @@ export class Runner {
       throw new Error('OS incompatible avec le projet');
     validateScreenDefinitions(project.nodes);
 
-    const roots = this.selectRoots(project, input.nodeId);
+    const roots = input.roots
+      ? structuredClone(input.roots)
+      : this.selectRoots(project, input.nodeId, input.onlySelf);
     if (!roots.length) throw new Error('Aucun scénario à exécuter');
     const wanted = [...new Set(input.deviceIds)]
       .map((id) => devices.known.get(id))
@@ -208,6 +240,7 @@ export class Runner {
       id: randomUUID(),
       projectId: project.id,
       campaignId,
+      environment: activeEnvironment(project)?.name,
       platforms: requested,
       startedAt: new Date().toISOString(),
       status: 'running',
@@ -234,8 +267,16 @@ export class Runner {
     this.publish(report, true);
     // Full runs and whole scenarios relaunch the app (data kept); single steps continue the current screen.
     const restart =
-      !input.nodeId || nodePath(project.nodes, input.nodeId).at(-1)?.kind === 'scenario';
-    this.task = this.execute(report, ids, abort, structuredClone(project), restart)
+      input.restartApp ??
+      (!input.nodeId || nodePath(project.nodes, input.nodeId).at(-1)?.kind === 'scenario');
+    this.task = this.execute(
+      report,
+      ids,
+      abort,
+      structuredClone(project),
+      restart,
+      input.preparation,
+    )
       .catch((error) => {
         report.status = 'failed';
         report.finishedAt = new Date().toISOString();
@@ -259,34 +300,10 @@ export class Runner {
   }
 
   /** Whole project, one scenario, or a single step wrapped in its scenario (keeping its precondition guard). */
-  private selectRoots(project: Project, nodeId?: string): ScenarioNode[] {
-    if (!nodeId) return structuredClone(project.nodes.filter((n) => !n.preparation));
-    const path = nodePath(project.nodes, nodeId);
-    const selected = path.at(-1);
-    if (!selected) return [];
-    if (selected.kind === 'scenario') return structuredClone([selected]);
-    const parent = path.at(-2)!;
-    const index = parent.children.findIndex((n) => n.id === selected.id);
-    const guard = selected.preconditionId ? parent.children[index - 1] : undefined;
-    const previous = parent.children
-      .slice(0, index)
-      .reverse()
-      .find((n) => n.kind !== 'test');
-    const startScreen =
-      selected.startScreen ??
-      (previous?.kind === 'navigation'
-        ? previous.screen
-        : index === 0
-          ? parent.startScreen
-          : undefined);
-    return structuredClone([
-      {
-        ...path[0],
-        name: path[0].name + ' (partiel)',
-        startScreen,
-        children: [...(guard ? [{ ...guard, preconditionId: null, children: [] }] : []), selected],
-      },
-    ]);
+  private selectRoots(project: Project, nodeId?: string, onlySelf = false): ScenarioNode[] {
+    if (!nodeId) return structuredClone(project.nodes.filter((n) => !isSupportScenario(n)));
+    const root = partialRoot(project, nodeId, onlySelf);
+    return root ? [root] : [];
   }
 
   private async execute(
@@ -295,9 +312,10 @@ export class Runner {
     abort: AbortController,
     project: Project,
     restart: boolean,
+    preparation?: RunRequest['preparation'],
   ) {
     const { devices, automation, settings } = this.deps;
-    const variables = () => structuredClone(project.variables ?? {});
+    const variables = () => structuredClone(effectiveVariables(project));
     const roots = [...report.snapshot];
     const outcomes = await Promise.allSettled(
       deviceIds.map((deviceId) => {
@@ -308,6 +326,7 @@ export class Runner {
           report.id,
           abort.signal,
           variables,
+          project.applications?.[devices.known.get(deviceId)?.platform as OS],
         );
         return new DeviceRun({
           report,
@@ -318,9 +337,12 @@ export class Runner {
           t: this.t,
           publish: () => this.publish(report),
           saveCapture: (entryId, image) => this.deps.campaigns.saveCapture(report, entryId, image),
+          saveVideo: (entryId, video) => this.deps.campaigns.saveVideo(report, entryId, video),
           application: project.applications?.[ctx.platform] || undefined,
           restartApplication: restart,
+          preparation,
           healer: this.healer,
+          advisor: this.advisor,
           analyzer: this.analyzer,
           recovery: this.deps.recovery,
           startAnalysis: (entryId) =>

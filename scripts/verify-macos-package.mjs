@@ -44,5 +44,7 @@ export default async function afterSign(context) {
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const folder = process.arch === 'x64' ? 'mac' : `mac-${process.arch}`;
-  verifyMacPackage(path.resolve(process.argv[2] ?? path.join('release', folder, 'Cybermonkey.app')));
+  verifyMacPackage(
+    path.resolve(process.argv[2] ?? path.join('release', folder, 'Cybermonkey.app')),
+  );
 }

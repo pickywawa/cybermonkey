@@ -12,6 +12,9 @@ import {
   ArrowUp,
   ArrowDown,
   Search,
+  GitBranch,
+  Repeat,
+  Workflow,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { latestOutcomes } from '../../../shared/domain/campaign';
@@ -56,8 +59,9 @@ export function ScenarioTree({
   const [query, setQuery] = useState('');
   const outcomes = useMemo(() => latestOutcomes(detail), [detail]);
   if (!project) return null;
-  const roots = project.nodes.filter((n) => !n.preparation);
+  const roots = project.nodes.filter((n) => !n.preparation && !n.handler);
   const prep = project.nodes.filter((n) => n.preparation);
+  const handlers = project.nodes.filter((n) => n.handler);
   const q = query.trim().toLowerCase();
   const visible = (n: ScenarioNode): boolean =>
     !q || n.name.toLowerCase().includes(q) || n.children.some(visible);
@@ -125,6 +129,29 @@ export function ScenarioTree({
           <span className="grow ellipsis" title={n.name}>
             {n.name}
           </span>
+          {(n.when || n.call || n.dataset) && (
+            <span className="logic-marks">
+              {n.when && (
+                <span title={t('logic.when')}>
+                  <GitBranch size={11} />
+                </span>
+              )}
+              {n.call && (
+                <span
+                  title={t('logic.callTitle', {
+                    name: project.nodes.find((r) => r.id === n.call)?.name ?? '?',
+                  })}
+                >
+                  <Workflow size={11} />
+                </span>
+              )}
+              {n.dataset && (
+                <span title={t('logic.datasetRows', { n: n.dataset.rows.length })}>
+                  <Repeat size={11} />
+                </span>
+              )}
+            </span>
+          )}
           {mode === 'creation' && missing.length > 0 && (
             <span className="gap" title={t('tree.missing', { os: missing.join(', ') })}>
               {missing.map((os) => (
@@ -259,6 +286,14 @@ export function ScenarioTree({
           </div>
         )}
         {roots.map((n) => render(n, 0, null))}
+        {handlers.length > 0 && (
+          <>
+            <div className="eyebrow" style={{ padding: '12px 12px 4px' }}>
+              {t('tree.handlers')}
+            </div>
+            {handlers.map((n) => render(n, 0, null))}
+          </>
+        )}
         {prep.length > 0 && (
           <>
             <div className="eyebrow" style={{ padding: '12px 12px 4px' }}>

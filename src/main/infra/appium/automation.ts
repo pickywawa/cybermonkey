@@ -14,6 +14,7 @@ import { nodeModules } from '../paths.js';
 import { androidApplicationInfo } from '../devices/app-info.js';
 import { iosCapabilities } from './ios-config.js';
 import { performOperation, StepError } from './operations.js';
+import type { LogEntry } from '../devices/device-log.js';
 import { prepareWdaRuntime } from './runtime.js';
 import type { AppiumServer } from './server.js';
 import { parseScreen } from './source.js';
@@ -240,6 +241,131 @@ export class Automation {
       }),
     );
   }
+  /** 4 = in the foreground, 3/2 = background, 1 = not running, 0 = unknown. Undefined when it cannot be asked. */
+  async appState(id: string, application: string, owner?: string): Promise<number | undefined> {
+    const session = this.sessions.get(id);
+    const platform = this.device(id)?.platform;
+    if (!session || !platform) return undefined;
+    try {
+      this.check(id, owner);
+      const state = await this.server.request(`/session/${session}/execute/sync`, 'POST', {
+        script: 'mobile: queryAppState',
+        args: [platform === 'ios' ? { bundleId: application } : { appId: application }],
+      });
+      return typeof state === 'number' ? state : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  /** The system or in-app dialog currently blocking the app, with its buttons; null when there is none. */
+  async alertInfo(id: string, owner?: string): Promise<{ text: string; buttons: string[] } | null> {
+    const session = this.sessions.get(id);
+    const platform = this.device(id)?.platform;
+    if (!session || !platform) return null;
+    try {
+      this.check(id, owner);
+      const text = await this.server.request(
+        `/session/${session}/alert/text`,
+        'GET',
+        undefined,
+        8000,
+      );
+      let buttons: string[] = [];
+      if (platform === 'ios')
+        try {
+          const found = await this.server.request(`/session/${session}/execute/sync`, 'POST', {
+            script: 'mobile: alert',
+            args: [{ action: 'getButtons' }],
+          });
+          if (Array.isArray(found)) buttons = found.map(String);
+        } catch {
+          /* the text is enough to decide with the AI; plain accept/dismiss still work */
+        }
+      return { text: String(text ?? ''), buttons };
+    } catch {
+      return null;
+    }
+  }
+  private noRecording = new Set<string>();
+  private recording = new Set<string>();
+  /**
+   * Start recording the screen. Returns false when the device or its tooling cannot (e.g. a real iPhone without ffmpeg):
+   * remembered, so the cost of asking is paid once. Never throws: a video is a bonus.
+   */
+  async startRecording(id: string, owner?: string): Promise<boolean> {
+    if (this.noRecording.has(id) || this.recording.has(id)) return this.recording.has(id);
+    const session = this.sessions.get(id) ?? (await this.session(id).catch(() => undefined));
+    const platform = this.device(id)?.platform;
+    if (!session || !platform) return false;
+    try {
+      this.check(id, owner);
+      await this.server.request(`/session/${session}/appium/start_recording_screen`, 'POST', {
+        options:
+          platform === 'ios'
+            ? { videoType: 'mpeg4', videoQuality: 'low', timeLimit: 1800 }
+            : { timeLimit: 180, bitRate: 2_000_000 },
+      });
+      this.recording.add(id);
+      return true;
+    } catch (error) {
+      this.noRecording.add(id);
+      log(
+        'recording',
+        'Screen recording unavailable on ' +
+          id +
+          ': ' +
+          String((error as Error).message ?? error).slice(0, 200),
+      );
+      return false;
+    }
+  }
+  /** Stop the recording and return it (base64 mp4), or undefined. */
+  async stopRecording(id: string): Promise<string | undefined> {
+    if (!this.recording.delete(id)) return undefined;
+    const session = this.sessions.get(id);
+    if (!session) return undefined;
+    try {
+      const video = await this.server.request(
+        `/session/${session}/appium/stop_recording_screen`,
+        'POST',
+        {},
+      );
+      return typeof video === 'string' && video.length > 100 ? video : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  /** Device log since the last read (syslog on iOS, logcat on Android). Empty when the driver cannot provide it. */
+  async deviceLog(
+    id: string,
+    application?: string,
+    owner?: string,
+  ): Promise<{ entries: LogEntry[]; pid?: number }> {
+    const session = this.sessions.get(id);
+    const platform = this.device(id)?.platform;
+    if (!session || !platform) return { entries: [] };
+    try {
+      this.check(id, owner);
+      const entries = await this.server.request(`/session/${session}/se/log`, 'POST', {
+        type: platform === 'ios' ? 'syslog' : 'logcat',
+      });
+      let pid: number | undefined;
+      if (platform === 'ios')
+        try {
+          // The foreground app's process id lets the syslog be filtered exactly (only if it IS our app).
+          const info = await this.server.request(`/session/${session}/execute/sync`, 'POST', {
+            script: 'mobile: activeAppInfo',
+            args: [{}],
+          });
+          if (info?.pid && (!application || info.bundleId === application)) pid = Number(info.pid);
+        } catch {
+          /* heuristics take over */
+        }
+      return { entries: Array.isArray(entries) ? (entries as LogEntry[]) : [], pid };
+    } catch {
+      return { entries: [] };
+    }
+  }
   async screenshot(id: string): Promise<string | undefined> {
     const session = this.sessions.get(id);
     if (!session) return undefined;
@@ -255,7 +381,8 @@ export class Automation {
     signal?: AbortSignal,
     variables: Record<string, string> = {},
     pointer = false,
-  ) {
+    application?: string,
+  ): Promise<string | void> {
     const resolved = resolveVariant(variant, variables, process.env);
     this.check(id, owner);
     return this.serial(id, async () => {
@@ -263,11 +390,12 @@ export class Automation {
       const session = await this.session(id);
       signal?.throwIfAborted();
       try {
-        await performOperation(
+        return await performOperation(
           {
             deviceId: id,
             platform: this.device(id)!.platform,
             session,
+            application,
             request: (route, method, body, timeout, s) =>
               this.server.request(route, method, body, timeout, s),
             // Pointer feedback costs two extra requests per step: only for manual "try" actions, never in runs.

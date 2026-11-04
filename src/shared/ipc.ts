@@ -6,7 +6,20 @@ import type { Variant, ScenarioNode, OS, NodeKind } from './domain/scenario.js';
 import type { ExportFormat } from './domain/campaign-export.js';
 import type { RecordedStep } from './domain/recording.js';
 import type { UpdateStatus } from './update.js';
+import type { McpStatus } from './mcp.js';
 
+/** A failing capture next to the last passing one, with what changed outlined. */
+export interface VisualComparison {
+  baseline: string;
+  current: string;
+  /** The failing capture with changed areas outlined; absent when nothing differs. */
+  diff?: string;
+  comparable: boolean;
+  reason?: string;
+  changedPercent: number;
+  regions: { x: number; y: number; w: number; h: number; share: number; where: string }[];
+  baselineAt: string;
+}
 export interface Workspace {
   settings: Settings;
   projects: Project[];
@@ -39,12 +52,22 @@ export type RunRequest = {
   nodeId?: string;
   deviceIds: string[];
   resetCampaign?: boolean;
+  /** Run only this node, without its children. */
+  onlySelf?: boolean;
+  /** Ready-made roots (MCP: arbitrary sequences of steps, in any order). Takes precedence over nodeId. */
+  roots?: import('./domain/scenario.js').ScenarioNode[];
+  /** Relaunch the app (data kept) before running. Defaults to the usual rule (full runs and whole scenarios). */
+  restartApp?: boolean;
+  /** Override of the start-screen preparation mode for this run. */
+  preparation?: 'off' | 'existing' | 'ai';
 };
 
 /** channel → [input, output]. Add a line here + one handler in main/ipc to expose a feature. */
 export interface Contract {
   'workspace.load': [void, Workspace];
   'settings.save': [Settings, Settings];
+  'mcp.status': [void, McpStatus];
+  'mcp.regenerateToken': [void, Settings];
 
   'projects.create': [ProjectInput, Project];
   'projects.update': [ProjectUpdate, Project];
@@ -69,7 +92,8 @@ export interface Contract {
   'devices.inspect': [string, Screen];
   'devices.perform': [
     { deviceId: string; projectId?: string; variant: Variant; kind: NodeKind },
-    void,
+    /** Text read by a `capture` step, otherwise null. */
+    string | null,
   ];
   'devices.openWda': [string, void];
   'devices.openDoc': [
@@ -108,6 +132,14 @@ export interface Contract {
   'runs.screenshot': [
     { projectId: string; campaignId?: string; runId: string; entryId: string },
     string | null,
+  ];
+  'runs.video': [
+    { projectId: string; campaignId?: string; runId: string; entryId: string },
+    string | null,
+  ];
+  'runs.compare': [
+    { projectId: string; campaignId?: string; runId: string; entryId: string },
+    VisualComparison | null,
   ];
   'runs.applyHealing': [
     { projectId: string; campaignId: string; runId: string; entryId: string },

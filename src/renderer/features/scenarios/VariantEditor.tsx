@@ -1,15 +1,18 @@
-import { Crosshair, Play, Plus, Trash2, Variable } from 'lucide-react';
+import { Crosshair, Play, Plus, Trash2, TriangleAlert, Variable } from 'lucide-react';
 import { useState } from 'react';
 import {
   ASSERTIONS,
   DIRECTIONS,
   OPERATIONS,
   makeVariant,
+  needsComponent,
   type Locator,
   type NodeKind,
   type OS,
   type Variant,
 } from '../../../shared/domain/scenario';
+import { effectiveVariables } from '../../../shared/domain/project';
+import { reviewVariant } from '../../../shared/domain/selectors';
 import { call } from '../../shared/api';
 import { useT } from '../../shared/i18n';
 import { Button, Field } from '../../shared/ui/controls';
@@ -69,8 +72,7 @@ export function VariantEditor({
   const set = (patch: Partial<Variant>) => onChange({ ...variant, ...patch });
   const isTest = kind === 'test';
   const ops = isTest ? (['assert'] as const) : OPERATIONS.filter((o) => o !== 'assert');
-  const needsLocator =
-    (isTest || !['back', 'swipe', 'wait'].includes(variant.operation)) && !variant.point;
+  const needsLocator = (isTest || needsComponent(variant.operation)) && !variant.point;
   const loc = variant.locator;
   const run = async () => {
     if (!deviceId) return;
@@ -161,6 +163,9 @@ export function VariantEditor({
           </Button>
         </div>
       )}
+      {(needsLocator || variant.point) && (loc || variant.point) && (
+        <SelectorQuality variant={variant} />
+      )}
       {needsLocator && (
         <>
           <div className="grid2" style={{ gridTemplateColumns: '150px 1fr auto' }}>
@@ -248,7 +253,7 @@ export function VariantEditor({
               placeholder="${PASSWORD}"
               onChange={(e) => set({ value: e.target.value })}
             />
-            {Object.keys(project?.variables ?? {})
+            {Object.keys(project ? effectiveVariables(project) : {})
               .slice(0, 4)
               .map((k) => (
                 <Button
@@ -274,7 +279,89 @@ export function VariantEditor({
           />
         </Field>
       )}
-      {!isTest && variant.operation === 'swipe' && (
+      {!isTest && (variant.operation === 'longpress' || variant.operation === 'background') && (
+        <Field label={t(variant.operation === 'longpress' ? 'ed.durationMs' : 'ed.seconds')}>
+          <input
+            type="number"
+            min={0}
+            placeholder={variant.operation === 'longpress' ? '1000' : '2'}
+            value={variant.value}
+            onChange={(e) => set({ value: e.target.value })}
+          />
+        </Field>
+      )}
+      {!isTest && variant.operation === 'capture' && (
+        <>
+          <Field label={t('ed.captureVariable')} hint={t('ed.captureHint')}>
+            <input
+              className="mono"
+              value={variant.value}
+              placeholder="NUMERO_COMMANDE"
+              onChange={(e) => set({ value: e.target.value })}
+            />
+          </Field>
+          <Field label={t('ed.captureRegex')} hint={t('ed.captureRegexHint')}>
+            <input
+              className="mono"
+              value={variant.expected}
+              placeholder="n°(\d+)"
+              onChange={(e) => set({ expected: e.target.value })}
+            />
+          </Field>
+        </>
+      )}
+      {!isTest && variant.operation === 'deeplink' && (
+        <Field label={t('ed.link')} hint={t('ed.linkHint')}>
+          <input
+            className="mono"
+            value={variant.value}
+            placeholder="monapp://commande/42"
+            onChange={(e) => set({ value: e.target.value })}
+          />
+        </Field>
+      )}
+      {!isTest && variant.operation === 'alert' && (
+        <Field label={t('ed.alertAnswer')} hint={t('ed.alertHint')}>
+          <input
+            value={variant.value}
+            placeholder="accept"
+            onChange={(e) => set({ value: e.target.value })}
+          />
+        </Field>
+      )}
+      {!isTest && variant.operation === 'orientation' && (
+        <Field label={t('ed.orientationValue')}>
+          <select
+            value={variant.value || 'portrait'}
+            onChange={(e) => set({ value: e.target.value })}
+          >
+            <option value="portrait">Portrait</option>
+            <option value="landscape">Paysage / Landscape</option>
+          </select>
+        </Field>
+      )}
+      {!isTest && ['launch', 'relaunch', 'terminate'].includes(variant.operation) && (
+        <Field label={t('ed.otherApp')} hint={t('ed.otherAppHint')}>
+          <input
+            className="mono"
+            value={variant.value}
+            onChange={(e) => set({ value: e.target.value })}
+          />
+        </Field>
+      )}
+      {!isTest && variant.operation === 'scroll' && (
+        <Field label={t('ed.maxScrolls')}>
+          <input
+            type="number"
+            min={1}
+            max={40}
+            placeholder="8"
+            value={variant.value}
+            onChange={(e) => set({ value: e.target.value })}
+          />
+        </Field>
+      )}
+      {!isTest && (variant.operation === 'swipe' || variant.operation === 'scroll') && (
         <Field label={t('ed.direction')}>
           <select
             value={variant.direction}
@@ -288,9 +375,24 @@ export function VariantEditor({
           </select>
         </Field>
       )}
-      {isTest && (variant.assertion === 'text' || variant.assertion === 'contains') && (
-        <Field label={t('ed.expected')}>
-          <input value={variant.expected} onChange={(e) => set({ expected: e.target.value })} />
+      {isTest && ['text', 'contains', 'matches', 'count'].includes(variant.assertion) && (
+        <Field
+          label={t(
+            variant.assertion === 'matches'
+              ? 'ed.expectedRegex'
+              : variant.assertion === 'count'
+                ? 'ed.expectedCount'
+                : 'ed.expected',
+          )}
+          hint={variant.assertion === 'count' ? t('ed.countHint') : undefined}
+        >
+          <input
+            className={
+              variant.assertion === 'text' || variant.assertion === 'contains' ? '' : 'mono'
+            }
+            value={variant.expected}
+            onChange={(e) => set({ expected: e.target.value })}
+          />
         </Field>
       )}
       <Field label={t('ed.timeout')}>
@@ -303,6 +405,24 @@ export function VariantEditor({
           onChange={(e) => set({ timeoutMs: Number(e.target.value) })}
         />
       </Field>
+    </div>
+  );
+}
+
+/** Tells how long the selector will survive UI changes; silent when it is a good one. */
+function SelectorQuality({ variant }: { variant: Variant }) {
+  const t = useT();
+  const r = reviewVariant(variant);
+  if (r.quality === 'durable') return null;
+  return (
+    <div className={`notice ${r.quality === 'fair' ? '' : 'warn'}`} style={{ padding: '6px 10px' }}>
+      <TriangleAlert size={14} style={{ marginTop: 2 }} />
+      <div className="grow">
+        <div className="note">
+          <b>{t(`sel.${r.quality}` as never)}</b> {r.reason}
+        </div>
+        {r.quality !== 'fair' && <div className="note">{t('sel.ask')}</div>}
+      </div>
     </div>
   );
 }

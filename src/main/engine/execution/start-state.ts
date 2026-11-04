@@ -5,7 +5,7 @@ import {
   type Variant,
 } from '../../../shared/domain/scenario.js';
 
-export type StartTarget = { name: string; checks: Variant[] };
+export type StartTarget = { name: string; checks: Variant[]; link?: string };
 export type StartRecovery = {
   projectId: string;
   deviceId: string;
@@ -14,9 +14,9 @@ export type StartRecovery = {
   target: StartTarget;
   signal: AbortSignal;
 };
-type Perform = (variant: Variant, kind: ScenarioNode['kind']) => Promise<void>;
+type Perform = (variant: Variant, kind: ScenarioNode['kind']) => Promise<unknown>;
 
-const assertVisible = (locator: NonNullable<Variant['locator']>): Variant => ({
+export const assertVisible = (locator: NonNullable<Variant['locator']>): Variant => ({
   locator,
   fallbacks: [],
   hint: '',
@@ -31,12 +31,31 @@ const assertVisible = (locator: NonNullable<Variant['locator']>): Variant => ({
 /** Only positive assertions establish a starting screen. Never infer it from an absent control. */
 export function startingTarget(node: ScenarioNode, platform: OS): StartTarget | undefined {
   const markers = node.startScreen?.variants[platform]?.markers;
-  if (markers?.length) return { name: node.startScreen!.name, checks: markers.map(assertVisible) };
+  if (markers?.length)
+    return {
+      name: node.startScreen!.name,
+      checks: markers.map(assertVisible),
+      link: node.startScreen!.variants[platform]?.link,
+    };
   const first =
     node.kind === 'scenario' ? flatten(node.children).find((c) => c.kind !== 'scenario') : node;
   const variant = first?.variants[platform];
   if (first?.kind !== 'test' || !variant?.locator || variant.assertion === 'absent') return;
   return { name: first.name, checks: [{ ...variant }] };
+}
+
+/** The screen a step started from, as something the runner can get back to (markers, and its deep link if it has one). */
+export function screenTarget(
+  definition: {
+    name: string;
+    variants: Partial<Record<OS, { markers: Variant['locator'][]; link?: string }>>;
+  },
+  platform: OS,
+): StartTarget | undefined {
+  const v = definition.variants[platform];
+  const markers = (v?.markers ?? []).filter((m): m is NonNullable<typeof m> => !!m);
+  if (!markers.length) return undefined;
+  return { name: definition.name, checks: markers.map(assertVisible), link: v?.link };
 }
 
 export async function targetReached(
@@ -115,9 +134,20 @@ export async function prepareStart(input: {
   perform: Perform;
   execute: (node: ScenarioNode) => Promise<void>;
   explore?: () => Promise<void>;
+  /** Opens a deep link (recorded as a preparation step). */
+  openLink?: (url: string) => Promise<void>;
 }) {
   const reached = () => targetReached(input.target, input.perform, input.signal);
   if (await reached()) return;
+  // Shortcut: a deep link lands on the screen at once, where a restart + route costs many seconds.
+  if (input.target.link && input.openLink) {
+    try {
+      await input.openLink(input.target.link);
+      if (await targetReached(input.target, input.perform, input.signal, true)) return;
+    } catch {
+      input.signal.throwIfAborted(); // the link did not work here: fall back to the slow, sure way
+    }
+  }
   await input.restart();
   if (await targetReached(input.target, input.perform, input.signal, true)) return;
   for (const route of preparationRoutes(input.nodes, input.target, input.platform).slice(0, 10)) {

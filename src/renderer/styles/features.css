@@ -840,3 +840,72 @@ tr.detail td {
 .theme-swatches i {
   align-self: stretch;
 }
+
+/* ---------- settings: MCP ---------- */
+.mcp-code {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--side);
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: all;
+}
+.mcp-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.mcp-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 22px;
+}
+
+.logic-marks {
+  display: inline-flex;
+  gap: 4px;
+  color: var(--dim);
+  margin-right: 4px;
+}
+.logic-marks > span {
+  display: inline-flex;
+}
+
+.dur-bar {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--grad);
+  opacity: 0.8;
+}
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 220px));
+  gap: 10px;
+}
+.compare-grid img {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.compare-grid figure {
+  margin: 0;
+}
+
+.env-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.env-picker select {
+  flex: 1;
+  min-width: 0;
+}

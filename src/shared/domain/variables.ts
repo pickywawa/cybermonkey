@@ -19,7 +19,9 @@ export function resolveVariables(
     if (Object.hasOwn(variables, key)) return variables[key];
     const fallback = environment[SECRET_ENV_PREFIX + key];
     if (fallback !== undefined) return fallback;
-    throw new Error('Variable absente du projet : ' + key);
+    throw new Error(
+      `Variable absente : ${key} (à définir dans les variables du projet, ou à capturer plus tôt avec un pas « Capturer »).`,
+    );
   });
 }
 export function resolveVariant(

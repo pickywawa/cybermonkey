@@ -12,6 +12,8 @@ import { Queue, readJson, writeJson } from './atomic.js';
 
 const uuid = z.string().uuid();
 const PNG = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
+/** ~30 MB of video. */
+const MAX_VIDEO_BASE64 = 40_000_000;
 
 /** campaigns/<id>/{campaign.json, reports/<run>.json, captures/<run>-<entry>.png} */
 export class CampaignStore {
@@ -137,6 +139,40 @@ export class CampaignStore {
       if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
     }
     return 'capture:' + file;
+  }
+  /** A screen recording (base64 mp4) kept next to the captures. Oversized videos are dropped, never truncated. */
+  async saveVideo(
+    report: Pick<RunReport, 'id' | 'projectId' | 'campaignId'>,
+    entryId: string,
+    base64: string,
+  ) {
+    uuid.parse(report.id);
+    uuid.parse(entryId);
+    if (!report.campaignId) throw new Error('Rapport sans campagne');
+    if (!/^[A-Za-z0-9+/=]+$/.test(base64)) throw new Error('Format de vidéo invalide');
+    if (base64.length > MAX_VIDEO_BASE64) throw new Error('Vidéo trop volumineuse');
+    const directory = path.join(this.dir(report.projectId, report.campaignId), 'captures');
+    await fs.mkdir(directory, { recursive: true });
+    const file = `${report.id}-${entryId}.mp4`;
+    await fs.writeFile(path.join(directory, file), Buffer.from(base64, 'base64'), { mode: 0o600 });
+    return 'video:' + file;
+  }
+  async video(input: { projectId: string; campaignId: string; runId: string; entryId: string }) {
+    uuid.parse(input.runId);
+    uuid.parse(input.entryId);
+    try {
+      const buffer = await fs.readFile(
+        path.join(
+          this.dir(input.projectId, input.campaignId),
+          'captures',
+          `${input.runId}-${input.entryId}.mp4`,
+        ),
+      );
+      return 'data:video/mp4;base64,' + buffer.toString('base64');
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+      return null;
+    }
   }
   async saveReport(report: RunReport) {
     if (!report.campaignId) throw new Error('Rapport sans campagne');

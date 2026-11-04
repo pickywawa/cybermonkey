@@ -5,6 +5,7 @@ import {
   appendChildren,
   flatten,
   makeNode,
+  DEVICE_OPERATIONS,
   makeVariant,
   newId,
   nodeSchema,
@@ -23,6 +24,7 @@ import {
   screenDefinitions,
   validateScreenDefinitions,
 } from '../../../shared/domain/screens.js';
+import { reviewVariant, suggestIdentifier } from '../../../shared/domain/selectors.js';
 import type { Translate } from '../i18n.js';
 
 export const locKey = (l?: Locator) => (l ? `${l.using}\u0000${l.value}` : '');
@@ -140,7 +142,7 @@ export function resolveLocator(facts: Facts, os: OS, locator: Locator): Locator 
   return undefined;
 }
 
-const LOCATORLESS = new Set(['back', 'swipe', 'wait']);
+const LOCATORLESS = new Set<string>(DEVICE_OPERATIONS);
 const EXECUTABLE = new Set(['tap', 'type', 'clear', 'back', 'swipe']);
 
 export interface RepairResult {
@@ -288,6 +290,49 @@ export function repairProposal(
     return matched;
   };
 
+  /** Conditions must rest on observed selectors; calls must target an existing scenario of the project. */
+  const fixLogic = (node: ScenarioNode) => {
+    if (node.call) {
+      const target = project.nodes.find((n) => n.id === node.call && n.kind === 'scenario');
+      if (!target) {
+        warn(
+          t(
+            `Appel de « ${node.name} » retiré : sous-scénario inexistant.`,
+            `Call of “${node.name}” removed: sub-scenario does not exist.`,
+          ),
+        );
+        delete node.call;
+      } else node.variants = {};
+    }
+    if (!node.when) return;
+    for (const os of OS_LIST) {
+      const cond = node.when[os];
+      if (!cond) continue;
+      const candidates = facts.deviceByOs.has(os)
+        ? [cond.locator, ...cond.fallbacks].flatMap((l) => {
+            const r = l && resolveLocator(facts, os, l);
+            return r ? [r] : [];
+          })
+        : [];
+      if (!candidates.length) {
+        delete node.when[os];
+        warn(
+          t(
+            `Condition ${os} de « ${node.name} » retirée : sélecteur non observé.`,
+            `${os} condition of “${node.name}” removed: selector never observed.`,
+          ),
+        );
+      } else
+        node.when[os] = {
+          ...cond,
+          operation: 'assert',
+          locator: candidates[0],
+          fallbacks: candidates.slice(1),
+        };
+    }
+    if (!OS_LIST.some((os) => node.when![os])) delete node.when;
+  };
+
   const fixScreen = (node: ScenarioNode, matched: Map<OS, ExecutedAction>) => {
     let screen: ScreenDefinition | undefined = node.screen
       ? structuredClone(node.screen)
@@ -411,7 +456,9 @@ export function repairProposal(
           ),
         );
       }
-      const matched = node.kind === 'scenario' ? new Map<OS, ExecutedAction>() : fixVariants(node);
+      fixLogic(node);
+      const matched =
+        node.kind === 'scenario' || node.call ? new Map<OS, ExecutedAction>() : fixVariants(node);
       if (node.kind === 'navigation') fixScreen(node, matched);
       else if (node.screen) delete node.screen;
       node.children = walk(node.children);
@@ -456,6 +503,20 @@ export function repairProposal(
   };
   nodes = walk(nodes);
 
+  // A step that will break at the next UI change is worth a warning now, while the author still has the screen in hand.
+  for (const n of flatten(nodes))
+    for (const os of OS_LIST) {
+      const v = n.variants[os];
+      if (!v || n.call) continue;
+      const review = reviewVariant(v);
+      if (review.quality === 'fragile' || review.quality === 'position')
+        warn(
+          t(
+            `« ${n.name} » (${os}) : sélecteur ${review.quality === 'position' ? 'par position' : 'fragile'} — ${review.reason} Demandez un identifiant d’accessibilité (suggestion : ${suggestIdentifier(n.name, v.hint)}).`,
+            `“${n.name}” (${os}): ${review.quality === 'position' ? 'position-based' : 'fragile'} selector — ${review.reason} Ask for an accessibility identifier (suggestion: ${suggestIdentifier(n.name, v.hint)}).`,
+          ),
+        );
+    }
   const errors: string[] = [];
   try {
     const combined = parentId

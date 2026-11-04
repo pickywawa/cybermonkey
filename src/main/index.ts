@@ -3,6 +3,7 @@ import { createContainer, type Container } from './container.js';
 import { WindowManager } from './app/windows.js';
 import { createUpdater } from './app/updates.js';
 import { registerHandlers } from './ipc/handlers.js';
+import { McpService } from './mcp/server.js';
 import { Ipc } from './ipc/registry.js';
 import { paths } from './infra/paths.js';
 import type { Updater } from './infra/updater/updater.js';
@@ -20,6 +21,7 @@ paths.userData = app.getPath('userData');
 paths.documents = app.getPath('documents');
 
 let container: Container | undefined;
+let mcp: McpService | undefined;
 const emit = (event: LiveEvent) => windows.broadcast('live:event', event);
 const windows = new WindowManager(() => container?.store, emit);
 const AUTH_HOSTS = [
@@ -47,13 +49,15 @@ app
     });
     const c = container;
     let updater: Updater;
-    registerHandlers(new Ipc(windows.isAllowed), c, windows, () => updater);
+    mcp = new McpService(c, app.getVersion());
+    registerHandlers(new Ipc(windows.isAllowed), c, windows, () => updater, mcp);
     windows.refreshMenu();
     await windows.open('main');
     updater = await createUpdater(c, () => windows.main());
     if (c.settings().devicesDetached) await windows.open('devices');
     if (c.settings().aiDetached) await windows.open('ai');
     c.monitor.start();
+    await mcp.apply();
     app.on('activate', () => !windows.main() && !windows.quitting && void windows.open('main'));
   })
   .catch((e) => {
@@ -68,7 +72,7 @@ app.on('before-quit', (e) => {
   e.preventDefault();
   windows.quitting = true;
   const deadline = setTimeout(() => app.quit(), 6000);
-  void (container?.stop() ?? Promise.resolve()).finally(() => {
+  void Promise.allSettled([mcp?.stop(), container?.stop()]).finally(() => {
     clearTimeout(deadline);
     app.quit();
   });

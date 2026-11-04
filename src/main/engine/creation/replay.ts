@@ -4,10 +4,12 @@ import type { OS, ScenarioNode, Variant } from '../../../shared/domain/scenario.
 export async function replayProposal(
   nodes: ScenarioNode[],
   platform: OS,
-  perform: (variant: Variant, kind: ScenarioNode['kind']) => Promise<void>,
+  perform: (variant: Variant, kind: ScenarioNode['kind']) => Promise<unknown>,
   record: (entry: unknown) => Promise<void>,
   signal: AbortSignal,
   verify?: (node: ScenarioNode) => Promise<void>,
+  /** Called when a step fails: true = something in the way was dealt with, the step is replayed once. */
+  recover?: (node: ScenarioNode, error: unknown) => Promise<boolean>,
 ) {
   let assertions = 0;
   const errors: string[] = [];
@@ -49,8 +51,17 @@ export async function replayProposal(
         try {
           const variant = node.variants[platform];
           if (!variant) throw new Error('Variante manquante : ' + node.name);
-          await perform(variant, node.kind);
-          await verify?.(node);
+          const attempt = async () => {
+            await perform(variant, node.kind);
+            await verify?.(node);
+          };
+          try {
+            await attempt();
+          } catch (first) {
+            signal.throwIfAborted();
+            if (!recover || !(await recover(node, first))) throw first;
+            await attempt();
+          }
           if (node.kind === 'test') assertions++;
           await record({ type: 'replay-step', nodeId: node.id, platform, status: 'passed' });
         } catch (error) {

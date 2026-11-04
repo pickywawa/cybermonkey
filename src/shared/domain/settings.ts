@@ -50,8 +50,18 @@ export const settingsSchema = z.object({
   /* AI during test execution */
   executionPreparation: z.enum(['off', 'existing', 'ai']).default('existing'),
   healing: z.enum(['off', 'actions']).default('actions'),
+  /**
+   * Popups, expired sessions, system dialogs, crashes: what to do when a step fails because of them.
+   * off = nothing; rules = your interruption handlers and an app that went away; smart = also system dialogs and,
+   * with the AI, closing an unexpected popup.
+   */
+  interruptionMode: z.enum(['off', 'rules', 'smart']).default('smart'),
+  /** Replay once a step whose component was not found / whose check failed, before concluding: passing then marks it unstable. */
+  retryFailedSteps: z.boolean().default(true),
   /** Evidence kept per step: every step, only screens/checks/failures, or failures only. Fewer captures = faster runs. */
   executionProof: z.enum(['all', 'key', 'failures']).default('key'),
+  /** Screen video of each scenario, kept only when something failed in it (recording is dropped otherwise). */
+  executionVideo: z.enum(['off', 'failures']).default('failures'),
   analysisMode: z.enum(['automatic', 'ask', 'off']).default('ask'),
 
   /* Devices */
@@ -65,6 +75,13 @@ export const settingsSchema = z.object({
   iosWdaMode: z.enum(['build', 'preinstalled', 'external']).default('build'),
   iosXcodeConfigFile: z.string().max(2000).default(''),
   iosPlatformVersion: z.string().max(30).default(''),
+
+  /* MCP server: lets an AI assistant drive Cybermonkey (read scenarios, run them on devices, create…). */
+  mcpEnabled: z.boolean().default(true),
+  mcpPort: z.number().int().min(1024).max(65535).default(4750),
+  mcpToken: z.string().max(200).default(''),
+  /** Tool names switched off; empty = every tool of every group is available. */
+  mcpDisabledTools: z.array(z.string().max(80)).max(100).default([]),
 
   /* Updates & layout */
   checkUpdatesOnStart: z.boolean().default(true),

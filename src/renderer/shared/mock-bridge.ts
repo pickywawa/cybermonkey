@@ -275,6 +275,16 @@ export function createMockBridge(): Bridge {
     'workspace.load': () =>
       structuredClone({ settings, projects: [project], activeProjectId: project.id }),
     'settings.save': (s) => Object.assign(settings, s),
+    'mcp.status': () => ({
+      running: true,
+      port: 4750,
+      url: 'http://127.0.0.1:4750/mcp',
+      tools: 32,
+      calls: 3,
+      last: { tool: 'list_scenarios', at: new Date().toISOString(), ok: true },
+    }),
+    'mcp.regenerateToken': () =>
+      Object.assign(settings, { mcpToken: Math.random().toString(16).slice(2).padEnd(48, '0') }),
     'projects.update': (p) => update(p as never),
     'projects.select': () => {},
     'projects.create': () => project,
@@ -314,7 +324,7 @@ export function createMockBridge(): Bridge {
     'devices.screenshot': (id) =>
       phone(id.startsWith('ios') ? 'ios' : 'android', 'Bonjour Camille'),
     'devices.inspect': (id) => screenOf(id),
-    'devices.perform': () => {},
+    'devices.perform': () => null,
     'devices.openWda': () => {},
     'devices.openDoc': () => {},
     'devices.detach': () => {},
@@ -370,6 +380,8 @@ export function createMockBridge(): Bridge {
     'runs.current': () => report,
     'runs.analyze': () => {},
     'runs.screenshot': (i) => entries.find((e) => e.id === i.entryId)?.screenshot ?? null,
+    'runs.compare': () => null,
+    'runs.video': () => null,
     'runs.applyHealing': () => project,
     'replay.current': () => replay as never,
     'replay.select': (i) => {

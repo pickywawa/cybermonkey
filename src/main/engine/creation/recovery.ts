@@ -1,3 +1,4 @@
+import { effectiveVariables } from '../../../shared/domain/project.js';
 import { compactScreen } from '../../../shared/domain/devices.js';
 import { decisionJsonSchema, parseDecision } from '../../../shared/ai/protocol.js';
 import { PLACEHOLDER } from '../../../shared/domain/variables.js';
@@ -71,9 +72,18 @@ export class StartRecoveryAgent {
       input.signal,
       AbortSignal.timeout(config.creationTimeoutMinutes * 60000),
     ]);
-    const variables = () => store.get(input.projectId).variables ?? {};
+    const variables = () => effectiveVariables(store.get(input.projectId));
     const perform = (variant: Variant, kind: ScenarioNode['kind']) =>
-      automation.perform(input.deviceId, variant, kind, input.owner, signal, variables());
+      automation.perform(
+        input.deviceId,
+        variant,
+        kind,
+        input.owner,
+        signal,
+        variables(),
+        false,
+        store.get(input.projectId).applications?.[input.platform],
+      );
     const reached = () => targetReached(input.target, perform, signal);
     const inspect = () => automation.inspect(input.deviceId, input.owner);
     const route = makeNode('scenario', ('Préparation · ' + input.target.name).slice(0, 180), []);

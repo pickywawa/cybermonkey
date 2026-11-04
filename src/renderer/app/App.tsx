@@ -16,7 +16,7 @@ import { NodeEditor } from '../features/scenarios/NodeEditor';
 import { ScenarioTree } from '../features/scenarios/ScenarioTree';
 import { StepComposer } from '../features/scenarios/StepComposer';
 import { SettingsDialog } from '../features/settings/SettingsDialog';
-import { VariablesDialog } from '../features/settings/VariablesDialog';
+import { EnvironmentPicker, VariablesDialog } from '../features/settings/VariablesDialog';
 import { findNode, makeNode } from '../../shared/domain/scenario';
 import { AppProvider, useActions, useApp } from './store';
 import { UiContext, type SettingsTab, type Ui } from './ui';
@@ -256,6 +256,7 @@ function Shell() {
                     : undefined
                 }
               />
+              <EnvironmentPicker onManage={() => ui.openVariables()} />
               <button className="side-foot" onClick={() => ui.openVariables()}>
                 <Variable size={14} /> {t('var.title')}{' '}
                 <span className="badge">{Object.keys(project.variables).length}</span>

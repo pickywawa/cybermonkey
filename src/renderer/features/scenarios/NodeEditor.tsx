@@ -11,6 +11,7 @@ import {
 import { useState } from 'react';
 import {
   OS_LIST,
+  callersOf,
   coverage,
   flatten,
   nodePath,
@@ -26,6 +27,7 @@ import { PlatformIcon, osName } from '../../shared/ui/icons';
 import { useActions, useApp } from '../../app/store';
 import { useWorkbench } from '../devices/workbench';
 import { ScreenIdentityEditor } from './ScreenIdentityEditor';
+import { CallEditor, ConditionEditor, DatasetEditor, HandlerEditor } from './LogicEditor';
 import { VariantEditor } from './VariantEditor';
 
 const ICON: Record<NodeKind, typeof Layers> = {
@@ -77,13 +79,18 @@ export function NodeEditor({ node }: { node: ScenarioNode }) {
           variant="danger"
           size="sm"
           icon={<Trash2 size={13} />}
-          onClick={() =>
-            confirm(t('tree.confirmDelete', { name: node.name })) &&
-            void actions.updateProject({
-              nodes: removeNode(project.nodes, node.id),
-              selectedNodeId: null,
-            })
-          }
+          onClick={() => {
+            const callers = callersOf(project.nodes, node.id);
+            if (callers.length)
+              return void alert(
+                t('logic.cannotDelete', { names: callers.map((c) => c.name).join(', ') }),
+              );
+            if (confirm(t('tree.confirmDelete', { name: node.name })))
+              void actions.updateProject({
+                nodes: removeNode(project.nodes, node.id),
+                selectedNodeId: null,
+              });
+          }}
         >
           {t('tree.delete')}
         </Button>
@@ -176,7 +183,26 @@ export function NodeEditor({ node }: { node: ScenarioNode }) {
         </Field>
       )}
 
-      {isStep && cov.missing.length > 0 && (
+      <ConditionEditor node={node} oses={project.platforms} onChange={(when) => patch({ when })} />
+      {node.kind === 'action' && (
+        <CallEditor
+          node={node}
+          scenarios={project.nodes.filter((n) => !n.preparation && n.id !== path[0]?.id)}
+          onChange={(call) => patch({ call, variants: call ? {} : node.variants })}
+        />
+      )}
+      {node.kind === 'scenario' && (
+        <DatasetEditor node={node} onChange={(dataset) => patch({ dataset })} />
+      )}
+      {node.kind === 'scenario' && (
+        <HandlerEditor
+          node={node}
+          oses={project.platforms}
+          onChange={(handler) => patch({ handler })}
+        />
+      )}
+
+      {isStep && !node.call && cov.missing.length > 0 && (
         <div className="notice warn">
           <TriangleAlert size={16} style={{ marginTop: 2 }} />
           <div className="grow">
@@ -198,7 +224,7 @@ export function NodeEditor({ node }: { node: ScenarioNode }) {
         </div>
       )}
 
-      {isStep && (
+      {isStep && !node.call && (
         <div className="stack">
           {OS_LIST.filter((o) => projectOs.includes(o) || node.variants[o])
             .filter((o) => applies.includes(o))

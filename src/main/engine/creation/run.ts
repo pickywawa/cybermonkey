@@ -1,3 +1,4 @@
+import { effectiveVariables } from '../../../shared/domain/project.js';
 import { z } from 'zod';
 import { compactScreen, screenFingerprint, type Screen } from '../../../shared/domain/devices.js';
 import { decisionJsonSchema, parseDecision, type Decision } from '../../../shared/ai/protocol.js';
@@ -25,6 +26,8 @@ import { deviceContext, type DeviceContext } from '../device-context.js';
 import type { Translate } from '../i18n.js';
 import { CREATION_SYSTEM } from '../prompts.js';
 import { prepareStart, startingTarget } from '../execution/start-state.js';
+import { AiInterruptionAdvisor } from '../execution/interruption-ai.js';
+import { answerBlockingAlert, InterruptionGuard } from '../execution/interruptions.js';
 import { waitForScreenDefinition } from '../execution/screen-wait.js';
 import {
   preparationCheck,
@@ -52,6 +55,8 @@ export interface CreationInput {
   sessionId?: string;
   nodeId?: string;
   deviceIds: string[];
+  /** Per-call overrides (MCP: no human to answer questions, optional replay). */
+  overrides?: { autoApprove?: boolean; replay?: boolean };
 }
 export interface CreationDeps {
   store: WorkspaceStore;
@@ -102,7 +107,7 @@ export class CreationRun {
     this.owner = 'ai:' + input.projectId;
     this.softDeadline = deadline;
     this.trace = new TraceWriter(() =>
-      Object.values(deps.store.get(input.projectId).variables ?? {}).filter(Boolean),
+      Object.values(effectiveVariables(deps.store.get(input.projectId))).filter(Boolean),
     );
   }
   private get settings() {
@@ -111,11 +116,89 @@ export class CreationRun {
   private get t() {
     return this.deps.t;
   }
-  private variables = () => this.deps.store.get(this.input.projectId).variables ?? {};
+  private variables = () => effectiveVariables(this.deps.store.get(this.input.projectId));
   private say(message: string) {
     this.deps.live({ type: 'ai', projectId: this.input.projectId, message });
   }
   private osOf = (id: string) => this.deps.devices.known.get(id)!.platform;
+  private advisorInstance?: AiInterruptionAdvisor;
+  private get advisor() {
+    return (this.advisorInstance ??= new AiInterruptionAdvisor(this.deps.hub, this.deps.settings));
+  }
+  /** Answers the dialog blocking a device, if any (rules first, the AI for unclear ones). */
+  private async answerAlert(id: string, step: string): Promise<boolean> {
+    if (this.settings.interruptionMode !== 'smart') return false;
+    const ctx = this.ctx.get(id)!;
+    const event = await answerBlockingAlert(ctx, {
+      advisor: this.advisor,
+      step,
+      signal: this.signal,
+      t: this.t,
+    });
+    if (event)
+      this.say(
+        this.t('Dialogue système : ', 'System dialog: ') +
+          event.name +
+          (event.detail ? ' → ' + event.detail : ''),
+      );
+    return !!event?.ok;
+  }
+  /** During the replay of a proposal: deal with what got in the way of a step so it can be replayed. */
+  private async recoverStep(
+    id: string,
+    platform: OS,
+    node: ScenarioNode,
+    error: unknown,
+  ): Promise<boolean> {
+    if (this.settings.interruptionMode === 'off') return false;
+    const ctx = this.ctx.get(id)!;
+    const project = this.deps.store.get(this.input.projectId);
+    const runSteps = async (list: ScenarioNode[]): Promise<boolean> => {
+      for (const n of list) {
+        if (n.platforms && !n.platforms.includes(platform)) continue;
+        if (n.call) {
+          const target = project.nodes.find((x) => x.id === n.call);
+          if (!target || !(await runSteps(target.children))) return false;
+          continue;
+        }
+        const v = n.variants[platform];
+        if (n.kind !== 'scenario' && v) await ctx.perform(v, n.kind);
+        if (!(await runSteps(n.children))) return false;
+      }
+      return true;
+    };
+    const known = this.replayGuards?.get(id);
+    const guard: InterruptionGuard =
+      known ??
+      new InterruptionGuard({
+        ctx,
+        os: platform,
+        application: project.applications?.[platform] || undefined,
+        handlers: () =>
+          this.deps.store
+            .get(this.input.projectId)
+            .nodes.filter((n) => n.handler && n.handler.when.variants[platform]?.markers.length),
+        mode: () => this.settings.interruptionMode,
+        advisor: this.advisor,
+        runHandler: (h) => runSteps(h.children).catch(() => false),
+        signal: this.signal,
+        t: this.t,
+      });
+    (this.replayGuards ??= new Map<string, InterruptionGuard>()).set(id, guard);
+    const result = await guard.handle({
+      step: node.name,
+      description: node.description,
+      error: String((error as Error).message ?? error),
+      operation: node.variants[platform]?.operation ?? 'tap',
+    });
+    if (result)
+      this.say(
+        this.t('Imprévu pendant le rejeu : ', 'Interruption during the replay: ') +
+          result.events.map((e) => e.name).join(' ; '),
+      );
+    return !!result?.handled;
+  }
+  private replayGuards?: Map<string, InterruptionGuard>;
 
   async execute(): Promise<CreationReply> {
     const { store, devices, automation, hub } = this.deps;
@@ -148,7 +231,15 @@ export class CreationRun {
       this.facts.deviceByOs.set(d.platform, id);
       this.ctx.set(
         id,
-        deviceContext(automation, devices, id, this.owner, this.signal, this.variables),
+        deviceContext(
+          automation,
+          devices,
+          id,
+          this.owner,
+          this.signal,
+          this.variables,
+          this.project.applications?.[d.platform],
+        ),
       );
     }
     automation.acquire(this.input.deviceIds, this.owner);
@@ -249,6 +340,9 @@ export class CreationRun {
   }
 
   /* ---------- observation ---------- */
+  private get autoApprove() {
+    return this.input.overrides?.autoApprove ?? this.settings.explorationMode === 'auto-approve';
+  }
   private lastObserved?: string;
   /** An explicit inspection after an action shows the app once it has settled (past loading states). */
   private settle(id: string, screen: Screen) {
@@ -295,11 +389,11 @@ export class CreationRun {
       outline: this.outline(project.nodes),
       devices: this.input.deviceIds.map((id) => devices_(this.deps, id)),
       request: this.input.prompt,
-      availableVariables: Object.keys(project.variables ?? {}),
+      availableVariables: Object.keys(effectiveVariables(project)),
       mode: {
-        exploration: settings.explorationMode,
+        exploration: this.autoApprove ? 'auto-approve' : settings.explorationMode,
         preparation: settings.creationPreparation,
-        questions: settings.creationQuestions && settings.explorationMode !== 'auto-approve',
+        questions: settings.creationQuestions && !this.autoApprove,
         language: settings.language,
       },
       extraGuidance: settings.creationPrompt || undefined,
@@ -533,7 +627,14 @@ export class CreationRun {
         throw new Error('Cette saisie a déjà été tentée pendant la préparation.');
     }
     const before = this.screens.get(id);
-    await ctx.perform(variant, 'action');
+    try {
+      await ctx.perform(variant, 'action');
+    } catch (error) {
+      // A system dialog (permission…) is the usual reason a perfectly good action fails: answer it and try once more.
+      this.signal.throwIfAborted();
+      if (!(await this.answerAlert(id, d.operation))) throw error;
+      await ctx.perform(variant, 'action');
+    }
     const after = await this.observe(id);
     if (route) {
       const node = makeNode('action', 'Préparation · ' + d.operation, [platform]);
@@ -729,7 +830,7 @@ export class CreationRun {
   private async questionOrVariable(d: Extract<Decision, { tool: 'question' | 'create_variable' }>) {
     const { store } = this.deps;
     const settings = this.settings;
-    const auto = settings.explorationMode === 'auto-approve';
+    const auto = this.autoApprove;
     let name: string | undefined, value: string | undefined;
     if (d.tool === 'create_variable') {
       const parsed = variablesSchema.safeParse({ [d.variableName]: d.value });
@@ -737,7 +838,7 @@ export class CreationRun {
         return 'VARIABLE ERROR: use a valid variable name and an exact nonempty credential supplied in the current user request.';
       name = d.variableName;
       value = d.value;
-      if (Object.hasOwn(store.get(this.input.projectId).variables, name))
+      if (Object.hasOwn(effectiveVariables(store.get(this.input.projectId)), name))
         return 'Variable already exists; use ${' + name + '}. Its value was not changed.';
     } else if (auto || !settings.creationQuestions)
       return 'Questions unavailable. Continue with reasonable assumptions within the requested scope; if required information is missing, finish with an honest blocker. Use create_variable for credentials supplied by the user.';
@@ -761,7 +862,7 @@ export class CreationRun {
         'VARIABLE SAVED: ${' +
         name +
         '}. Available variables: ' +
-        JSON.stringify(Object.keys(store.get(this.input.projectId).variables)) +
+        JSON.stringify(Object.keys(effectiveVariables(store.get(this.input.projectId)))) +
         '. Continue using the placeholder.'
       );
     }
@@ -770,7 +871,7 @@ export class CreationRun {
       'USER CLARIFICATION (data): ' +
       JSON.stringify(answer) +
       '\nAvailable variables: ' +
-      JSON.stringify(Object.keys(store.get(this.input.projectId).variables))
+      JSON.stringify(Object.keys(effectiveVariables(store.get(this.input.projectId))))
     );
   }
 
@@ -953,7 +1054,7 @@ export class CreationRun {
           'Application to launch not configured.',
         ),
       };
-      if (!this.settings.creationReplay)
+      if (!(this.input.overrides?.replay ?? this.settings.creationReplay))
         Object.assign(result, {
           status: 'skipped',
           message: this.t('Rejeu désactivé.', 'Replay disabled.'),
@@ -1015,6 +1116,7 @@ export class CreationRun {
                 this.signal,
               );
             },
+            (node, error) => this.recoverStep(id, platform, node, error),
           );
           Object.assign(result, {
             status: 'passed',

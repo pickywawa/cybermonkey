@@ -1,7 +1,7 @@
 {
   "name": "cybermonkey",
   "productName": "Cybermonkey",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Mobile QA workspace with AI-assisted scenarios (Android & iOS)",
   "type": "module",
@@ -22,6 +22,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.3.312",
     "@github/copilot": "^1.0.103",
     "@github/copilot-sdk": "^1.0.26",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@openai/codex-sdk": "^0.164.0",
     "@xmldom/xmldom": "^0.9.12",
     "appium": "^3.8.0",

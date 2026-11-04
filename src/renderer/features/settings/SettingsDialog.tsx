@@ -9,6 +9,7 @@ import { Modal } from '../../shared/ui/overlays';
 import { useActions, useApp } from '../../app/store';
 import type { SettingsTab } from '../../app/ui';
 import { AiSettings } from './AiSettings';
+import { McpSettings } from './McpSettings';
 import { UpdatePanel } from './UpdatePanel';
 
 /** Preview colors (background, sidebar, accent) of each theme: the CSS variables only exist on the root element. */
@@ -64,17 +65,19 @@ export function SettingsDialog({
     >
       <div className="settings-layout">
         <nav className="vtabs" role="tablist" aria-orientation="vertical">
-          {(['general', 'ai', 'creation', 'execution', 'devices', 'updates'] as const).map((v) => (
-            <button
-              key={v}
-              role="tab"
-              aria-selected={tab === v}
-              className={tab === v ? 'on' : ''}
-              onClick={() => setTab(v)}
-            >
-              {t(`set.tab.${v}` as never)}
-            </button>
-          ))}
+          {(['general', 'ai', 'creation', 'execution', 'devices', 'mcp', 'updates'] as const).map(
+            (v) => (
+              <button
+                key={v}
+                role="tab"
+                aria-selected={tab === v}
+                className={tab === v ? 'on' : ''}
+                onClick={() => setTab(v)}
+              >
+                {t(`set.tab.${v}` as never)}
+              </button>
+            ),
+          )}
         </nav>
         <div className="stack settings-content">
           {error != null && <ErrorNotice error={error} />}
@@ -236,6 +239,17 @@ export function SettingsDialog({
                   ))}
                 </select>
               </Field>
+              <Field label={t('set.ex.video')} hint={t('set.ex.videoHint')}>
+                <select
+                  value={draft.executionVideo}
+                  onChange={(e) =>
+                    set({ executionVideo: e.target.value as Settings['executionVideo'] })
+                  }
+                >
+                  <option value="failures">{t('set.ex.video.failures')}</option>
+                  <option value="off">{t('set.ex.video.off')}</option>
+                </select>
+              </Field>
               <Field label={t('set.ex.healing')} hint={t('set.ex.healingHint')}>
                 <select
                   value={draft.healing}
@@ -245,6 +259,25 @@ export function SettingsDialog({
                   <option value="actions">{t('set.ex.healing.actions')}</option>
                 </select>
               </Field>
+              <Field label={t('set.ex.interruptions')} hint={t('set.ex.interruptionsHint')}>
+                <select
+                  value={draft.interruptionMode}
+                  onChange={(e) =>
+                    set({ interruptionMode: e.target.value as Settings['interruptionMode'] })
+                  }
+                >
+                  <option value="smart">{t('set.ex.int.smart')}</option>
+                  <option value="rules">{t('set.ex.int.rules')}</option>
+                  <option value="off">{t('set.ex.int.off')}</option>
+                </select>
+              </Field>
+              <Check
+                checked={draft.retryFailedSteps}
+                onChange={(v) => set({ retryFailedSteps: v })}
+              >
+                {t('set.ex.retry')}
+              </Check>
+              <p className="note">{t('set.ex.retryHint')}</p>
               <Field label={t('set.ex.analysis')}>
                 <select
                   value={draft.analysisMode}
@@ -352,6 +385,7 @@ export function SettingsDialog({
               </div>
             </>
           )}
+          {tab === 'mcp' && <McpSettings draft={draft} set={set} />}
           {tab === 'updates' && <UpdatePanel draft={draft} set={set} />}
         </div>
       </div>

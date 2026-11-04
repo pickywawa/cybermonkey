@@ -19,6 +19,7 @@ import {
   type OS,
   type ScenarioNode,
   type Variant,
+  isSupportScenario,
 } from '../../../shared/domain/scenario';
 import { call } from '../../shared/api';
 import { useT } from '../../shared/i18n';
@@ -64,7 +65,7 @@ export function StepComposer() {
   const insert = (nodes: ScenarioNode[], node: ScenarioNode): ScenarioNode[] | null => {
     if (selected?.kind === 'scenario') return appendChildren(nodes, selected.id, [node]);
     if (selected) return insertAfter(nodes, selected.id, node);
-    const scenario = nodes.filter((n) => !n.preparation).at(-1);
+    const scenario = nodes.filter((n) => !isSupportScenario(n)).at(-1);
     return scenario ? appendChildren(nodes, scenario.id, [node]) : null;
   };
   const create = async (kind: 'action' | 'test', variant: Variant) => {

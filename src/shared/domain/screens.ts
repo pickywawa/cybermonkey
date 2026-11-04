@@ -146,7 +146,7 @@ export function validateScreenDefinitions(nodes: ScenarioNode[]) {
       for (const os of ['android', 'ios'] as const) {
         const a = old.variants[os],
           b = node.screen.variants[os];
-        if (a && b && JSON.stringify(a) !== JSON.stringify(b))
+        if (a && b && JSON.stringify(a.markers) !== JSON.stringify(b.markers))
           throw new Error(
             'Définitions incompatibles pour l’écran ' + node.screen.id + ' (' + os + ')',
           );

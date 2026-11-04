@@ -22,6 +22,13 @@ export interface AnalysisData {
   evidence: string[];
   fix?: string;
 }
+export interface InterruptionEvent {
+  kind: 'handler' | 'system-alert' | 'app-gone' | 'ai-dismiss' | 'return';
+  /** Handler name, alert text, popup description… */
+  name: string;
+  detail?: string;
+  ok: boolean;
+}
 export interface RunEntry {
   id: string;
   nodeId: string;
@@ -47,11 +54,34 @@ export interface RunEntry {
   healing?: HealingRecord;
   precondition?: boolean;
   preparation?: boolean;
+  /** Screen recording of the scenario this step failed in (kept only for failures), and where the step starts in it (s). */
+  video?: string;
+  videoAt?: number;
+  /** What the device log said around the failure (the app's own lines and system errors), oldest first. */
+  deviceLog?: string;
+  /** Signs of network trouble found in the log, in plain words. */
+  networkHints?: string[];
+  /** The step passed only on its second attempt: it works, but not reliably. */
+  flaky?: boolean;
+  /** The step was attempted twice (it may still have failed). */
+  retried?: boolean;
+  /** The step was disturbed (popup, expired session, crash…) and what was done about it. */
+  interruptions?: InterruptionEvent[];
+  /** This entry belongs to the interruption handler of that name, not to the scenario being tested. */
+  interruption?: string;
+  /** Time spent doing the step itself (locating the component, the gesture, waiting for it), in ms. */
+  performMs?: number;
+  /** Time spent gathering evidence after the step (inspection, capture), in ms: the cost of the framework, not of the app. */
+  proofMs?: number;
+  /** Set when the scenario is played once per dataset row: which row this entry belongs to. */
+  iteration?: { index: number; total: number; label: string };
 }
 export interface RunReport {
   id: string;
   projectId: string;
   campaignId?: string;
+  /** Environment the run used (its variables were layered over the common ones). */
+  environment?: string;
   platforms?: OS[];
   startedAt: string;
   finishedAt?: string;

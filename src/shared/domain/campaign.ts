@@ -1,4 +1,10 @@
-import { applicableOs, flatten, type OS, type ScenarioNode } from './scenario.js';
+import {
+  applicableOs,
+  flatten,
+  isSupportScenario,
+  type OS,
+  type ScenarioNode,
+} from './scenario.js';
 import type { CampaignDetail, ReplayFrame, RunEntry, RunStatus } from './report.js';
 import type { Project } from './project.js';
 
@@ -23,7 +29,7 @@ export function campaignFrames(detail: CampaignDetail | null): ReplayFrame[] {
 
 const planned = (project: Pick<Project, 'nodes' | 'platforms'>, oses: readonly OS[]) => {
   const keys = new Map<string, { os: OS; node: ScenarioNode; scenarioId: string }>();
-  for (const root of project.nodes.filter((n) => !n.preparation))
+  for (const root of project.nodes.filter((n) => !isSupportScenario(n)))
     for (const node of flatten([root]))
       if (node.kind !== 'scenario')
         for (const os of applicableOs(node, project.platforms).filter((o) => oses.includes(o)))
@@ -38,16 +44,26 @@ export function latestOutcomes(detail: CampaignDetail | null) {
     a.startedAt.localeCompare(b.startedAt),
   )) {
     const kinds = new Map(flatten(report.snapshot).map((n) => [n.id, n.kind]));
+    // A step played once per dataset row counts as its worst outcome; a plain retry replaces the previous result.
+    const rank = (s: RunStatus) =>
+      ({ failed: 5, blocked: 4, cancelled: 3, skipped: 2, passed: 1 })[s as 'failed'] ?? 0;
+    const within = new Map<string, RunStatus>();
     for (const e of report.entries) {
       if (
         e.preparation ||
+        e.interruption ||
         e.precondition ||
         (e.kind ?? kinds.get(e.nodeId)) === 'scenario' ||
         e.nodeId === 'engine'
       )
         continue;
-      latest.set(e.platform + ':' + e.nodeId, outcomeOf(e));
+      const key = e.platform + ':' + e.nodeId;
+      const outcome = outcomeOf(e);
+      const previous = within.get(key);
+      if (e.iteration && previous !== undefined && rank(outcome) <= rank(previous)) continue;
+      within.set(key, outcome);
     }
+    for (const [key, outcome] of within) latest.set(key, outcome);
   }
   return latest;
 }
@@ -176,7 +192,7 @@ export function buildScreenGraph(
     edges.set(key, edge);
   };
   // Planned graph: navigation order inside each scenario.
-  for (const root of project.nodes.filter((n) => !n.preparation)) {
+  for (const root of project.nodes.filter((n) => !isSupportScenario(n))) {
     let previous: string | undefined = root.startScreen?.id;
     if (root.startScreen) ensure(root.startScreen.id, root.startScreen.name, true, true);
     for (const node of flatten(root.children)) {

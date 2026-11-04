@@ -9,6 +9,14 @@ import {
 } from './scenario.js';
 import { variablesSchema } from './variables.js';
 
+export const environmentSchema = z.object({
+  id: z.string().min(1).max(80),
+  name: z.string().trim().min(1).max(60),
+  /** Overrides the project's common variables of the same name while this environment is selected. */
+  variables: variablesSchema.default({}),
+});
+export type Environment = z.infer<typeof environmentSchema>;
+
 const appId = (re: RegExp) => z.string().trim().max(255).regex(re).default('');
 export const applicationsSchema = z.object({
   android: appId(/^[A-Za-z0-9_.]*$/),
@@ -78,6 +86,9 @@ export const projectSchema = z.object({
   applicationDetails: applicationDetailsSchema.default({}),
   applications: applicationsSchema.default({ android: '', ios: '' }),
   variables: variablesSchema.default({}),
+  /** Named sets of variables (staging, pre-production…): one can be selected for everything the project does. */
+  environments: z.array(environmentSchema).max(20).default([]),
+  activeEnvironmentId: z.string().nullable().default(null),
   chatSessions: z.array(chatSessionSchema).default([]),
   activeChatSessionId: z.string().nullable().default(null),
   activeCampaignId: z.string().uuid().nullable().default(null),
@@ -150,6 +161,8 @@ export interface ProjectUpdate {
   applications?: Applications;
   applicationDetails?: ApplicationDetails;
   variables?: Record<string, string>;
+  environments?: Environment[];
+  activeEnvironmentId?: string | null;
   chatSessions?: ChatSession[];
   activeChatSessionId?: string | null;
   activeCampaignId?: string | null;
@@ -163,4 +176,37 @@ export interface AppInfo {
   id: string;
   name: string;
   icon?: string;
+}
+
+/** The environment currently selected for the project, if any. */
+export const activeEnvironment = (
+  project: Pick<Project, 'environments' | 'activeEnvironmentId'>,
+): Environment | undefined =>
+  project.environments?.find((e) => e.id === project.activeEnvironmentId);
+/**
+ * The variables a run, a creation session or a manual try actually uses: the project's common variables, overridden by
+ * those of the selected environment.
+ */
+export const effectiveVariables = (
+  project: Pick<Project, 'variables' | 'environments' | 'activeEnvironmentId'>,
+): Record<string, string> => ({
+  ...(project.variables ?? {}),
+  ...(activeEnvironment(project)?.variables ?? {}),
+});
+/** Environments must have distinct names and the selected one must exist. */
+export function normalizeEnvironments<
+  T extends { environments: Environment[]; activeEnvironmentId: string | null },
+>(project: T): T {
+  const names = new Set<string>();
+  for (const e of project.environments) {
+    const key = e.name.trim().toLowerCase();
+    if (names.has(key)) throw new Error(`Deux environnements portent le nom « ${e.name} ».`);
+    names.add(key);
+  }
+  return {
+    ...project,
+    activeEnvironmentId: project.environments.some((e) => e.id === project.activeEnvironmentId)
+      ? project.activeEnvironmentId
+      : null,
+  };
 }

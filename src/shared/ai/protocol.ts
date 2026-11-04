@@ -197,6 +197,32 @@ export const healingSchema = z.object({
 });
 export const healingJsonSchema = toSchema(healingSchema);
 
+/** What the AI makes of a screen that interrupts a failing step. */
+export const interruptionSchema = z.object({
+  kind: z.enum([
+    'popup',
+    'toast',
+    'session-expired',
+    'logged-out',
+    'network-error',
+    'crash-screen',
+    'permission',
+    'unrelated',
+  ]),
+  /** The ONE component that closes or acknowledges it (close, OK, later, not now), or null. */
+  componentId: z.string().nullable(),
+  /** Name of one of the known handlers if it clearly describes this situation. */
+  handler: z.string().nullable(),
+  summary: z.string().max(300),
+});
+export const interruptionJsonSchema = toSchema(interruptionSchema);
+export const alertChoiceSchema = z.object({
+  /** Exact label of the button to press, or null to leave the dialog alone. */
+  button: z.string().nullable(),
+  reason: z.string().max(300),
+});
+export const alertChoiceJsonSchema = toSchema(alertChoiceSchema);
+
 /** Answer used to resolve which component a user tapped between two screens (recorder). */
 export const tapResolutionSchema = z.object({
   componentId: z.string().nullable(),

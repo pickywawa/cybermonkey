@@ -1,9 +1,10 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import {
   activeOs,
   migrateProject,
+  normalizeEnvironments,
   projectInput,
   projectSchema,
   type Message,
@@ -55,7 +56,17 @@ export class WorkspaceStore {
         throw new Error(`Impossible de lire la configuration : ${String(error)}`);
       this.state = { settings: defaults, projects: [], activeProjectId: null };
     }
+    await this.ensureMcpToken();
     return this.state;
+  }
+  /** The MCP server is on by default: it must never run with an empty or guessable token. */
+  private async ensureMcpToken() {
+    if (this.state.settings.mcpToken) return;
+    this.state.settings = { ...this.state.settings, mcpToken: randomBytes(24).toString('hex') };
+    await this.persist();
+  }
+  async regenerateMcpToken() {
+    return this.patchSettings({ mcpToken: randomBytes(24).toString('hex') });
   }
   private persist() {
     return writeJson(path.join(this.configDirectory, 'workspace.json'), {
@@ -180,7 +191,7 @@ export class WorkspaceStore {
         throw new Error('Le projet a changé. Rechargez la proposition.');
       const { expectedRevision: _ignored, ...patch } = input;
       const platforms = patch.platforms ?? current.platforms;
-      const next = projectSchema.parse({
+      const parsed = projectSchema.parse({
         ...current,
         ...patch,
         focus:
@@ -193,6 +204,7 @@ export class WorkspaceStore {
           current.revision +
           (patch.nodes || patch.tags || patch.platforms || patch.applications ? 1 : 0),
       }) as Project;
+      const next = normalizeEnvironments(parsed) as Project;
       if (
         next.activeChatSessionId &&
         !next.chatSessions.some((s) => s.id === next.activeChatSessionId)

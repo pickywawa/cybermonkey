@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { variableName } from './variables.js';
 
 export const OS_LIST = ['android', 'ios'] as const;
 export type OS = (typeof OS_LIST)[number];
@@ -10,11 +11,83 @@ export const locatorSchema = z.object({
 });
 export type Locator = z.infer<typeof locatorSchema>;
 
-export const OPERATIONS = ['tap', 'type', 'clear', 'back', 'assert', 'swipe', 'wait'] as const;
+export const OPERATIONS = [
+  'tap',
+  'type',
+  'clear',
+  'back',
+  'assert',
+  'swipe',
+  'wait',
+  // Gestures
+  'longpress',
+  'doubletap',
+  'scroll',
+  // Read a value from the screen into a variable
+  'capture',
+  // Application lifecycle
+  'launch',
+  'relaunch',
+  'terminate',
+  'background',
+  // Links and system
+  'deeplink',
+  'alert',
+  'orientation',
+  'hidekeyboard',
+] as const;
 export type Operation = (typeof OPERATIONS)[number];
-export const ASSERTIONS = ['visible', 'absent', 'text', 'contains', 'enabled'] as const;
+export const ASSERTIONS = [
+  'visible',
+  'absent',
+  'text',
+  'contains',
+  'enabled',
+  'selected',
+  'matches',
+  'count',
+] as const;
 export type Assertion = (typeof ASSERTIONS)[number];
 export const DIRECTIONS = ['up', 'down', 'left', 'right'] as const;
+
+/** Operations that act on the device or the app as a whole: no component to find. */
+export const DEVICE_OPERATIONS: readonly Operation[] = [
+  'back',
+  'swipe',
+  'wait',
+  'launch',
+  'relaunch',
+  'terminate',
+  'background',
+  'deeplink',
+  'alert',
+  'orientation',
+  'hidekeyboard',
+];
+/** Operations that may target a screen position instead of a selector (web views). */
+export const POINT_OPERATIONS: readonly Operation[] = [
+  'tap',
+  'type',
+  'clear',
+  'longpress',
+  'doubletap',
+];
+/** Operations after which the screen the engine remembers can no longer be trusted. */
+export const SCREEN_CHANGING_OPERATIONS: readonly Operation[] = [
+  'back',
+  'swipe',
+  'scroll',
+  'launch',
+  'relaunch',
+  'terminate',
+  'background',
+  'deeplink',
+  'alert',
+  'orientation',
+  'hidekeyboard',
+];
+export const needsComponent = (operation: Operation): boolean =>
+  !DEVICE_OPERATIONS.includes(operation);
 
 /** How one step is performed on ONE operating system. */
 export const variantSchema = z.object({
@@ -39,7 +112,14 @@ export type Variant = z.infer<typeof variantSchema>;
 export const makeVariant = (partial: Partial<Variant> = {}): Variant =>
   variantSchema.parse(partial);
 
-const markersSchema = z.object({ markers: z.array(locatorSchema).min(1).max(12) });
+const markersSchema = z.object({
+  markers: z.array(locatorSchema).min(1).max(12),
+  /**
+   * Deep link that opens this screen directly (e.g. myapp://orders). When a scenario starts here, the runner tries it
+   * before restarting the app and replaying a route: seconds instead of tens of seconds.
+   */
+  link: z.string().trim().min(1).max(500).optional(),
+});
 export const screenDefinitionSchema = z.object({
   id: z.string().trim().min(1).max(120),
   name: z.string().trim().min(1).max(180),
@@ -73,8 +153,55 @@ export interface ScenarioNode {
   screen?: ScreenDefinition;
   source?: ExternalRef;
   variants: Partial<Record<OS, Variant>>;
+  /**
+   * Run condition, per OS: an assertion evaluated right before the step. When it is not met the step (and its children)
+   * is skipped, which is not a failure: "if the cookie banner is visible, close it".
+   */
+  when?: Partial<Record<OS, Variant>>;
+  /** Id of a scenario whose steps run here, in place: reuse "Log in" everywhere without copying it. */
+  call?: string;
+  /**
+   * Scenario only: an interruption handler. When a step fails and this screen is showing (a popup, an expired-session
+   * message, the login screen…), the scenario runs to deal with it, then the failed step is replayed.
+   * Handlers are never part of a campaign on their own.
+   */
+  handler?: Handler;
+  /** Scenario only: played once per row, each column being a variable (accounts, languages…). */
+  dataset?: Dataset;
   children: ScenarioNode[];
 }
+
+export const handlerSchema = z.object({
+  /** What is on screen when this interruption is there (markers per OS, like any screen identity). */
+  when: screenDefinitionSchema,
+  /**
+   * After the handler: "retry" replays the failed step where the app now is; "return" first goes back to the screen the
+   * step started from (through the known navigations), e.g. after logging in again.
+   */
+  resume: z.enum(['retry', 'return']).default('return'),
+  /** Safety valve against a handler that keeps coming back during one run. */
+  maxPerRun: z.number().int().min(1).max(20).default(5),
+});
+export type Handler = z.infer<typeof handlerSchema>;
+/** Scenarios that exist to support others (preparation routes, interruption handlers): not run on their own. */
+export const isSupportScenario = (n: ScenarioNode): boolean => !!n.preparation || !!n.handler;
+
+export const MAX_DATASET_ROWS = 50;
+export const datasetSchema = z.object({
+  rows: z
+    .array(z.record(variableName, z.string().max(2000)))
+    .min(1)
+    .max(MAX_DATASET_ROWS),
+});
+export type Dataset = z.infer<typeof datasetSchema>;
+/** Column names of a dataset, in first-seen order. */
+export const datasetColumns = (d: Dataset): string[] => [...new Set(d.rows.flatMap(Object.keys))];
+/** Short label of one row for reports: its first values. */
+export const datasetRowLabel = (row: Record<string, string>): string =>
+  Object.entries(row)
+    .slice(0, 2)
+    .map(([k, v]) => `${k}=${/pass|pin|secret|token|code/i.test(k) ? '•••' : v.slice(0, 24)}`)
+    .join(', ');
 
 export const nodeSchema: z.ZodType<ScenarioNode> = z.lazy(() =>
   z.object({
@@ -94,6 +221,10 @@ export const nodeSchema: z.ZodType<ScenarioNode> = z.lazy(() =>
     variants: z
       .object({ android: variantSchema.optional(), ios: variantSchema.optional() })
       .default({}),
+    when: z.object({ android: variantSchema.optional(), ios: variantSchema.optional() }).optional(),
+    call: z.string().min(1).max(100).optional(),
+    dataset: datasetSchema.optional(),
+    handler: handlerSchema.optional(),
     children: z.array(nodeSchema).max(500).default([]),
   }),
 );
@@ -222,10 +353,12 @@ export function variantFor(node: ScenarioNode, os: OS): Variant | undefined {
 /** Per-OS coverage of a leaf: which OS have a configured variant. */
 export function coverage(node: ScenarioNode, projectOs: readonly OS[]) {
   const expected = applicableOs(node, projectOs);
+  // A sub-scenario call carries no selector: it is complete by itself.
+  const has = (os: OS) => !!node.call || !!node.variants[os];
   return {
     expected,
-    configured: expected.filter((os) => !!node.variants[os]),
-    missing: expected.filter((os) => !node.variants[os]),
+    configured: expected.filter(has),
+    missing: expected.filter((os) => !has(os)),
   };
 }
 
@@ -246,8 +379,45 @@ export function validateTree(nodes: ScenarioNode[]) {
         (i === 0 || list[i - 1].kind !== 'test' || list[i - 1].id !== n.preconditionId)
       )
         throw new Error('La précondition doit désigner le test immédiatement précédent.');
+      if (n.call && (n.kind !== 'action' || n.children.length))
+        throw new Error('Un appel de sous-scénario est un élément « action » sans enfants.');
+      if (n.handler && n.kind !== 'scenario')
+        throw new Error('Un gestionnaire d’imprévu est un scénario.');
+      // A handler without markers yet is a draft: it never triggers until it says what it reacts to.
+      if (n.dataset && n.kind !== 'scenario')
+        throw new Error('Un jeu de données ne s’applique qu’à un scénario.');
       visit(n.children, depth + 1);
     }
   };
   visit(nodes, 0);
+  validateCalls(nodes);
+}
+
+/** Every `call` must target an existing root scenario, and scenarios may not call each other in a loop. */
+export function validateCalls(nodes: ScenarioNode[]) {
+  const roots = new Map(nodes.map((n) => [n.id, n]));
+  const callsOf = (root: ScenarioNode) =>
+    flatten(root.children)
+      .map((n) => n.call)
+      .filter((id): id is string => !!id);
+  for (const root of nodes)
+    for (const id of callsOf(root))
+      if (!roots.has(id))
+        throw new Error(`Sous-scénario introuvable (appelé depuis « ${root.name} ») : ${id}`);
+  const visiting = new Set<string>();
+  const done = new Set<string>();
+  const walk = (root: ScenarioNode) => {
+    if (done.has(root.id)) return;
+    if (visiting.has(root.id))
+      throw new Error(`Appels de sous-scénarios circulaires autour de « ${root.name} ».`);
+    visiting.add(root.id);
+    for (const id of callsOf(root)) walk(roots.get(id)!);
+    visiting.delete(root.id);
+    done.add(root.id);
+  };
+  nodes.forEach(walk);
+}
+/** Scenarios that call this one (to warn before deleting it). */
+export function callersOf(nodes: ScenarioNode[], scenarioId: string): ScenarioNode[] {
+  return nodes.filter((root) => flatten(root.children).some((n) => n.call === scenarioId));
 }

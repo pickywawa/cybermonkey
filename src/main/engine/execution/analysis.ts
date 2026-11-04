@@ -32,6 +32,9 @@ export class Analyzer {
       platform: entry.platform,
       error: entry.message,
       healingAttempt: entry.healing,
+      // What the device itself reported just before the failure, and any sign of network trouble.
+      deviceLog: entry.deviceLog,
+      networkHints: entry.networkHints,
       previousSteps: report.entries
         .filter((e) => e.deviceId === entry.deviceId)
         .slice(-8)

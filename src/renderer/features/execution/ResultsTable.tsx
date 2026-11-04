@@ -1,7 +1,19 @@
-import { Check, ChevronDown, ChevronRight, ImageIcon, Sparkles, Wand2, Search } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Film,
+  ShieldAlert,
+  ImageIcon,
+  Sparkles,
+  TriangleAlert,
+  Wand2,
+  Search,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { outcomeOf } from '../../../shared/domain/campaign';
 import type { ReplayFrame, RunEntry, RunReport, RunStatus } from '../../../shared/domain/report';
+import type { VisualComparison } from '../../../shared/ipc';
 import { call } from '../../shared/api';
 import { useT } from '../../shared/i18n';
 import { Badge, Button } from '../../shared/ui/controls';
@@ -14,7 +26,7 @@ const TONE: Partial<Record<RunStatus, 'ok' | 'err' | 'warn'>> = {
   failed: 'err',
   blocked: 'warn',
 };
-const FILTERS = ['all', 'failed', 'passed', 'skipped', 'healed'] as const;
+const FILTERS = ['all', 'failed', 'passed', 'skipped', 'healed', 'flaky'] as const;
 
 export function ResultsTable({ report }: { report: RunReport }) {
   const t = useT();
@@ -39,6 +51,7 @@ export function ResultsTable({ report }: { report: RunReport }) {
     if (filter === 'passed' && o !== 'passed') return false;
     if (filter === 'skipped' && o !== 'skipped' && o !== 'na') return false;
     if (filter === 'healed' && !e.healing) return false;
+    if (filter === 'flaky' && !e.flaky) return false;
     const q = query.trim().toLowerCase();
     return (
       !q ||
@@ -130,6 +143,9 @@ export function ResultsTable({ report }: { report: RunReport }) {
                       {e.nodeName}
                     </div>
                     <div className="note">
+                      {e.interruption && (
+                        <Badge tone="warn">{t('res.handlerTag', { name: e.interruption })}</Badge>
+                      )}{' '}
                       {e.startedAt && new Date(e.startedAt).toLocaleTimeString(settings?.language)}
                     </div>
                   </td>
@@ -142,6 +158,12 @@ export function ResultsTable({ report }: { report: RunReport }) {
                       <span title={t('res.healed')}>
                         {' '}
                         <Wand2 size={12} color="var(--accent)" />
+                      </span>
+                    )}
+                    {e.flaky && (
+                      <span title={t('res.flakyHint')}>
+                        {' '}
+                        <Badge tone="warn">{t('res.flaky')}</Badge>
                       </span>
                     )}
                   </td>
@@ -170,6 +192,45 @@ export function ResultsTable({ report }: { report: RunReport }) {
                           {e.operationMessage ?? e.message}
                         </div>
                         {e.screenshotError && <div className="note">{t('res.noCapture')}</div>}
+                        {e.interruptions && e.interruptions.length > 0 && (
+                          <div className="notice">
+                            <ShieldAlert size={15} />
+                            <div className="grow">
+                              <div className="title">{t('res.interrupted')}</div>
+                              <ul className="note" style={{ margin: '4px 0 0 16px' }}>
+                                {e.interruptions.map((i, k) => (
+                                  <li key={k}>
+                                    {i.ok ? '✓' : '✗'} {t(`res.int.${i.kind}` as never)} — {i.name}
+                                    {i.detail ? ` (${i.detail})` : ''}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        )}
+                        {e.video && <VideoPlayer entry={e} runId={report.id} />}
+                        {e.networkHints && e.networkHints.length > 0 && (
+                          <div className="notice warn">
+                            <TriangleAlert size={15} />
+                            <div className="grow">
+                              <div className="title">{t('res.network')}</div>
+                              <div className="note">{e.networkHints.join(' · ')}</div>
+                            </div>
+                          </div>
+                        )}
+                        {e.deviceLog && (
+                          <details>
+                            <summary className="note" style={{ cursor: 'pointer' }}>
+                              {t('res.deviceLog')}
+                            </summary>
+                            <pre style={{ maxHeight: 220, overflow: 'auto', fontSize: 11 }}>
+                              {e.deviceLog}
+                            </pre>
+                          </details>
+                        )}
+                        {e.status === 'failed' && e.screenshot && (
+                          <VisualCompare entry={e} runId={report.id} />
+                        )}
                         {e.healing && (
                           <div className="notice">
                             <Wand2 size={15} />
@@ -255,3 +316,105 @@ export function ResultsTable({ report }: { report: RunReport }) {
   );
 }
 const FragmentRows = ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
+/** Last passing capture of this step next to the failing one, with what changed outlined. */
+function VisualCompare({ entry, runId }: { entry: RunEntry; runId: string }) {
+  const t = useT();
+  const { project } = useApp();
+  const [state, setState] = useState<'idle' | 'busy' | 'none' | VisualComparison>('idle');
+  if (!project) return null;
+  const run = async () => {
+    setState('busy');
+    try {
+      const r = await call('runs.compare', { projectId: project.id, runId, entryId: entry.id });
+      setState(r ?? 'none');
+    } catch {
+      setState('none');
+    }
+  };
+  if (state === 'idle' || state === 'busy')
+    return (
+      <div>
+        <Button
+          size="sm"
+          icon={<ImageIcon size={12} />}
+          busy={state === 'busy'}
+          onClick={() => void run()}
+        >
+          {t('res.compare')}
+        </Button>
+      </div>
+    );
+  if (state === 'none') return <div className="note">{t('res.compareNone')}</div>;
+  if (!state.comparable) return <div className="note">{state.reason}</div>;
+  return (
+    <div className="stack" style={{ gap: 6 }}>
+      <div className="note">
+        {t('res.compareLine', {
+          pct: state.changedPercent,
+          at: new Date(state.baselineAt).toLocaleString(),
+        })}
+        {state.regions.length > 0 &&
+          ' · ' +
+            state.regions
+              .slice(0, 4)
+              .map((r) => r.where)
+              .join(', ')}
+      </div>
+      <div className="compare-grid">
+        <figure>
+          <img src={state.baseline} alt="" />
+          <figcaption className="note">{t('res.compareBefore')}</figcaption>
+        </figure>
+        <figure>
+          <img src={state.diff ?? state.current} alt="" />
+          <figcaption className="note">{t('res.compareNow')}</figcaption>
+        </figure>
+      </div>
+    </div>
+  );
+}
+
+/** The screen recording of the scenario this step failed in, opened a few seconds before the step. */
+function VideoPlayer({ entry, runId }: { entry: RunEntry; runId: string }) {
+  const t = useT();
+  const { project } = useApp();
+  const [src, setSrc] = useState<string | null | 'busy'>(null);
+  if (!project) return null;
+  const load = async () => {
+    setSrc('busy');
+    try {
+      setSrc(
+        (await call('runs.video', { projectId: project.id, runId, entryId: entry.id })) ?? null,
+      );
+    } catch {
+      setSrc(null);
+    }
+  };
+  if (src === null || src === 'busy')
+    return (
+      <div className="row" style={{ gap: 8 }}>
+        <Button
+          size="sm"
+          busy={src === 'busy'}
+          icon={<Film size={12} />}
+          onClick={() => void load()}
+        >
+          {t('res.video')}
+        </Button>
+        {src === null && (
+          <span className="note">{t('res.videoHint', { s: entry.videoAt ?? 0 })}</span>
+        )}
+      </div>
+    );
+  return (
+    <video
+      src={src}
+      controls
+      style={{ maxWidth: 260, borderRadius: 8, border: '1px solid var(--line)' }}
+      onLoadedMetadata={(ev) => {
+        ev.currentTarget.currentTime = Math.max(0, (entry.videoAt ?? 0) - 3);
+      }}
+    />
+  );
+}

@@ -23,7 +23,11 @@ export function ScreenIdentityEditor({
   const def: ScreenDefinition = value ?? { id: newId(), name: '', variants: {} };
   const markers = (os: OS): Locator[] => def.variants[os]?.markers ?? [];
   const setMarkers = (os: OS, list: Locator[]) => {
-    const variants = { ...def.variants, [os]: list.length ? { markers: list } : undefined };
+    const link = def.variants[os]?.link;
+    const variants = {
+      ...def.variants,
+      [os]: list.length ? { markers: list, ...(link ? { link } : {}) } : undefined,
+    };
     if (!list.length) delete (variants as Record<string, unknown>)[os];
     onChange(Object.keys(variants).length || def.name ? { ...def, variants } : undefined);
   };
@@ -82,6 +86,27 @@ export function ScreenIdentityEditor({
             </div>
           ))}
           {!markers(os).length && <span className="note">{t('ed.noMarkers')}</span>}
+          {markers(os).length > 0 && (
+            <Field label={t('ed.screenLink')} hint={t('ed.screenLinkHint')}>
+              <input
+                className="mono"
+                placeholder="monapp://commandes"
+                value={def.variants[os]?.link ?? ''}
+                onChange={(e) =>
+                  onChange({
+                    ...def,
+                    variants: {
+                      ...def.variants,
+                      [os]: {
+                        markers: markers(os),
+                        ...(e.target.value.trim() ? { link: e.target.value } : {}),
+                      },
+                    },
+                  })
+                }
+              />
+            </Field>
+          )}
         </div>
       ))}
     </div>

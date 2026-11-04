@@ -8,15 +8,21 @@ const DMG = `${REPO}/releases/download/v${V}/Cybermonkey-${V}-mac-arm64.dmg`;
 const t = (fr, en) => `<span class="fr">${fr}</span><span class="en">${en}</span>`;
 const b = t; // inline bilingual HTML
 const P = (fr, en) => `<p>${t(fr, en)}</p>`; // standalone paragraph
-const shot = (name, alt) => `<figure class="shot"><img src="assets/screenshots/${name}.png" alt="${alt}" loading="lazy" width="2250" height="1410"></figure>`;
+const shot = (name, alt) =>
+  `<figure class="shot"><img src="assets/screenshots/${name}.png" alt="${alt}" loading="lazy" width="2250" height="1410"></figure>`;
 
 const NAV = [
   ['index.html', t('Accueil', 'Home')],
   ['fonctionnement.html', t('Fonctionnement', 'How it works')],
+  ['fonctionnalites.html', t('Fonctionnalités', 'Features')],
   ['aide.html', t('Aide', 'Help')],
 ];
 function page({ file, title, desc, body }) {
-  const nav = NAV.map(([href, label]) => `<a href="${href}"${href === file ? ' aria-current="page"' : ''}>${label}</a>`).join('') + `<a href="${REPO}" rel="noopener">GitHub ↗</a>`;
+  const nav =
+    NAV.map(
+      ([href, label]) =>
+        `<a href="${href}"${href === file ? ' aria-current="page"' : ''}>${label}</a>`,
+    ).join('') + `<a href="${REPO}" rel="noopener">GitHub ↗</a>`;
   return `<!doctype html>
 <html lang="fr">
 <head>
@@ -46,11 +52,46 @@ function page({ file, title, desc, body }) {
 
 /* ============================== HOME ============================== */
 const tabs = [
-  ['creation', t('Créer', 'Create'), b('Un scénario partagé : l’intention (nom, description) et une variante par OS. Créez à la main, avec l’IA, en enregistrant ou en important.', 'One shared scenario: the intent (name, description) and one variant per OS. Create by hand, with AI, by recording or by importing.')],
-  ['synthese', t('Valider', 'Review'), b('L’IA propose, vous décidez : synthèse, couverture par OS, résultat du rejeu et corrections automatiques. Rien n’est enregistré avant votre validation.', 'The AI proposes, you decide: synthesis, per-OS coverage, replay result and automatic fixes. Nothing is saved before you accept.')],
-  ['progression', t('Suivre', 'Track'), b('Avancement par OS et par scénario, résultats de la dernière tentative, chronologie rejouable avec les captures.', 'Progress per OS and per scenario, latest-attempt results, a scrubbable timeline with captures.')],
-  ['cartographie', t('Comprendre', 'Understand'), b('Les écrans testés, leurs captures et les résultats Android/iOS, reliés par les transitions observées.', 'Tested screens, their captures and Android/iOS results, linked by the transitions observed.')],
-  ['diagnostic', t('Configurer', 'Set up'), b('Chaque appareil dit précisément ce qui manque et comment le corriger, avec la commande à copier et un diagnostic par l’IA.', 'Each device says exactly what is missing and how to fix it, with a command to copy and an AI diagnosis.')],
+  [
+    'creation',
+    t('Créer', 'Create'),
+    b(
+      'Un scénario partagé : l’intention (nom, description) et une variante par OS. Créez à la main, avec l’IA, en enregistrant ou en important.',
+      'One shared scenario: the intent (name, description) and one variant per OS. Create by hand, with AI, by recording or by importing.',
+    ),
+  ],
+  [
+    'synthese',
+    t('Valider', 'Review'),
+    b(
+      'L’IA propose, vous décidez : synthèse, couverture par OS, résultat du rejeu et corrections automatiques. Rien n’est enregistré avant votre validation.',
+      'The AI proposes, you decide: synthesis, per-OS coverage, replay result and automatic fixes. Nothing is saved before you accept.',
+    ),
+  ],
+  [
+    'progression',
+    t('Suivre', 'Track'),
+    b(
+      'Avancement par OS et par scénario, résultats de la dernière tentative, chronologie rejouable avec les captures.',
+      'Progress per OS and per scenario, latest-attempt results, a scrubbable timeline with captures.',
+    ),
+  ],
+  [
+    'cartographie',
+    t('Comprendre', 'Understand'),
+    b(
+      'Les écrans testés, leurs captures et les résultats Android/iOS, reliés par les transitions observées.',
+      'Tested screens, their captures and Android/iOS results, linked by the transitions observed.',
+    ),
+  ],
+  [
+    'diagnostic',
+    t('Configurer', 'Set up'),
+    b(
+      'Chaque appareil dit précisément ce qui manque et comment le corriger, avec la commande à copier et un diagnostic par l’IA.',
+      'Each device says exactly what is missing and how to fix it, with a command to copy and an AI diagnosis.',
+    ),
+  ],
 ];
 const home = `
 <div class="wrap hero">
@@ -72,6 +113,10 @@ ${shot('progression', 'Cybermonkey — suivi d’une campagne')}
 <div class="card"><div class="ico">⇪</div><h3>${t('Importer vos cas de test', 'Import your test cases')}</h3><p>${t('Squash TM, TestRail, Azure Test Plans, Gherkin, CSV, JSON, Markdown : l’IA automatise les cas importés, ou vous les importez en squelettes à relier.', 'Squash TM, TestRail, Azure Test Plans, Gherkin, CSV, JSON, Markdown: the AI automates imported cases, or import them as skeletons to bind.')}</p></div>
 <div class="card"><div class="ico">⚡</div><h3>${t('Plus rapide qu’un humain', 'Faster than a human')}</h3><p>${t('Changement d’écran détecté par de petites requêtes, pas d’attente fixe, preuves paramétrables : une vérification se joue en 0,2 s.', 'Screen changes detected with tiny queries, no fixed waits, configurable evidence: a check runs in 0.2 s.')}</p></div>
 <div class="card"><div class="ico">⟲</div><h3>${t('Résilient aux changements', 'Resilient to change')}</h3><p>${t('Sélecteurs de secours, réparation par l’IA des actions dont le composant a disparu (jamais des vérifications), analyse structurée des échecs.', 'Fallback selectors, AI repair of actions whose component vanished (never of checks), structured failure analysis.')}</p></div>
+<div class="card"><div class="ico">⚡</div><h3>${t('Résiste aux imprévus', 'Survives the unexpected')}</h3><p>${t('Popup, session expirée, plantage, permission système : l’app est relancée, les dialogues répondus, vos gestionnaires reconnaissent l’écran, se reconnectent et reviennent là où le test en était.', 'Popup, expired session, crash, system permission: the app is relaunched, dialogs answered, your handlers recognise the screen, log in again and go back to where the test was.')}</p></div>
+<div class="card"><div class="ico">⌘</div><h3>${t('Distingue un bug d’un test fragile', 'Tells a bug from a fragile test')}</h3><p>${t('Relance ciblée, pas « instable », historique « passé 8 fois sur 10 », audit des sélecteurs avec l’identifiant à demander aux développeurs.', 'Targeted retry, “unstable” steps, “passed 8 times out of 10” history, selector audit with the identifier to ask developers for.')}</p></div>
+<div class="card"><div class="ico">▶</div><h3>${t('Comprend l’échec', 'Understands the failure')}</h3><p>${t('Vidéo de l’échec, journal de l’appareil, signes de problème réseau et comparaison visuelle avec la dernière réussite.', 'Failure video, device log, network-trouble signs and visual comparison with the last pass.')}</p></div>
+<div class="card"><div class="ico">❖</div><h3>${t('Environnements', 'Environments')}</h3><p>${t('Recette, préprod… chaque environnement a ses variables ; un sélecteur change tout le projet : création, exécution et MCP.', 'Staging, pre-prod… each environment has its own variables; one selector switches the whole project: creation, runs and MCP.')}</p></div>
 <div class="card"><div class="ico">◐</div><h3>${t('Un OS à la fois, ou les deux', 'One OS at a time, or both')}</h3><p>${t('Un sélecteur Android + iOS / Android / iOS dans la barre du haut. Une étape propre à un OS est « non applicable » ailleurs, jamais en échec.', 'An Android + iOS / Android / iOS switch in the top bar. A step specific to one OS is “not applicable” elsewhere, never failed.')}</p></div>
 </div></div></section>
 
@@ -108,10 +153,18 @@ ${tabs.map(([id, , cap], i) => `<p class="caption" data-caption="${id}"${i ? ' h
 </div></section>`;
 
 /* ============================== HOW IT WORKS ============================== */
-const toc = (items) => `<nav class="toc" aria-label="Sommaire">${items.map(([id, l]) => `<a href="#${id}">${l}</a>`).join('')}</nav>`;
+const toc = (items) =>
+  `<nav class="toc" aria-label="Sommaire">${items.map(([id, l]) => `<a href="#${id}">${l}</a>`).join('')}</nav>`;
 const howToc = [
-  ['vue', t('Vue d’ensemble', 'Overview')], ['projets', t('Projets et appareils', 'Projects and devices')], ['creer', t('Créer un scénario', 'Create a scenario')], ['modele', t('Le modèle de scénario', 'The scenario model')],
-  ['ia', t('L’IA de création', 'AI creation')], ['web', t('Vues web', 'Web views')], ['executer', t('Exécuter une campagne', 'Run a campaign')], ['comprendre', t('Suivi et cartographie', 'Tracking and map')], ['donnees', t('Données et architecture', 'Data and architecture')],
+  ['vue', t('Vue d’ensemble', 'Overview')],
+  ['projets', t('Projets et appareils', 'Projects and devices')],
+  ['creer', t('Créer un scénario', 'Create a scenario')],
+  ['modele', t('Le modèle de scénario', 'The scenario model')],
+  ['ia', t('L’IA de création', 'AI creation')],
+  ['web', t('Vues web', 'Web views')],
+  ['executer', t('Exécuter une campagne', 'Run a campaign')],
+  ['comprendre', t('Suivi et cartographie', 'Tracking and map')],
+  ['donnees', t('Données et architecture', 'Data and architecture')],
 ];
 const how = `<div class="wrap doc">${toc(howToc)}<article class="prose">
 <p class="eyebrow"><i></i>${t('Fonctionnement détaillé', 'How it works in detail')}</p>
@@ -179,7 +232,17 @@ ${P('Tout est local : <code>workspace.json</code> (réglages et index), <code>&l
 </article></div>`;
 
 /* ============================== HELP ============================== */
-const helpToc = [['demarrer', t('Démarrage rapide', 'Quick start')], ['install', t('Installation', 'Installation')], ['android', 'Android'], ['ios', 'iOS'], ['ia', t('Configurer l’IA', 'Set up the AI')], ['reglages', t('Réglages utiles', 'Useful settings')], ['depannage', t('Dépannage', 'Troubleshooting')], ['contact', t('Contact', 'Contact')]];
+const helpToc = [
+  ['demarrer', t('Démarrage rapide', 'Quick start')],
+  ['install', t('Installation', 'Installation')],
+  ['android', 'Android'],
+  ['ios', 'iOS'],
+  ['ia', t('Configurer l’IA', 'Set up the AI')],
+  ['reglages', t('Réglages utiles', 'Useful settings')],
+  ['mcp', 'MCP'],
+  ['depannage', t('Dépannage', 'Troubleshooting')],
+  ['contact', t('Contact', 'Contact')],
+];
 const help = `<div class="wrap doc">${toc(helpToc)}<article class="prose">
 <p class="eyebrow"><i></i>${t('Aide', 'Help')}</p><h1>${t('Aide et dépannage', 'Help and troubleshooting')}</h1>
 <h2 id="demarrer">${t('Démarrage rapide', 'Quick start')}</h2>
@@ -218,7 +281,14 @@ ${shot('parametres-ia', 'Paramètres IA')}
 <tr><td>${t('Exploration rapide', 'Fast exploration')}</td><td>${t('Raisonnement réduit pendant la navigation. À désactiver si les propositions manquent de finesse.', 'Reduced reasoning while navigating. Turn off if proposals lack finesse.')}</td></tr>
 <tr><td>${t('Preuves conservées par étape', 'Evidence per step')}</td><td>${t('Moins de captures = exécutions plus rapides.', 'Fewer captures = faster runs.')}</td></tr>
 <tr><td>${t('Réparation automatique des sélecteurs', 'Automatic selector repair')}</td><td>${t('Actions et navigations uniquement.', 'Actions and navigations only.')}</td></tr>
-<tr><td>${t('Préparation de l’écran de départ', 'Start-screen preparation')}</td><td>${t('Désactivée, parcours existants, ou IA en dernier recours.', 'Off, existing routes, or AI as a last resort.')}</td></tr></table>
+<tr><td>${t('Préparation de l’écran de départ', 'Start-screen preparation')}</td><td>${t('Désactivée, parcours existants, ou IA en dernier recours.', 'Off, existing routes, or AI as a last resort.')}</td></tr>
+<tr><td>${t('Imprévus', 'Interruptions')}</td><td>${t('Complet (gestionnaires, dialogues système, IA en dernier recours), gestionnaires et app disparue seulement, ou désactivé.', 'Full (handlers, system dialogs, AI as a last resort), handlers and vanished app only, or off.')}</td></tr>
+<tr><td>${t('Rejouer un pas en échec', 'Retry a failed step')}</td><td>${t('Un second essai court quand le composant est introuvable ou la vérification échoue ; réussi au 2e essai = « instable ».', 'A short second attempt when the component is not found or the check fails; passed on the 2nd attempt = “unstable”.')}</td></tr>
+<tr><td>${t('Vidéo des scénarios en échec', 'Video of failing scenarios')}</td><td>${t('Gardée seulement si le scénario échoue ; désactivable.', 'Kept only if the scenario fails; can be turned off.')}</td></tr>
+<tr><td>${t('Environnement', 'Environment')}</td><td>${t('Sélecteur dans la barre latérale ; variables par environnement dans « Variables ».', 'Selector in the sidebar; per-environment variables in “Variables”.')}</td></tr></table>
+<h2 id="mcp">MCP</h2>
+${P('Cybermonkey embarque un serveur MCP, activé par défaut et local (127.0.0.1) : une IA externe (Claude Code, Cursor…) peut lire vos scénarios, trouver le chemin vers une étape, piloter les téléphones, rejouer des éléments, créer et vérifier des scénarios. Réglages → MCP : activation, port, jeton, et chaque outil à cocher/décocher par groupe.', 'Cybermonkey embeds an MCP server, on by default and local (127.0.0.1): an external AI (Claude Code, Cursor…) can read your scenarios, find the path to a step, drive the phones, replay items, and create and verify scenarios. Settings → MCP: on/off, port, token, and every tool toggleable within its group.')}
+<pre><code>claude mcp add --transport http cybermonkey http://127.0.0.1:4750/mcp --header "Authorization: Bearer &lt;token&gt;"</code></pre>
 <h2 id="depannage">${t('Dépannage', 'Troubleshooting')}</h2>
 <details><summary>${t('Mon appareil n’apparaît pas', 'My device does not show up')}</summary><p>${b('Menu « ⋯ » de la carte de l’appareil → <b>Diagnostic</b> : chaque ligne rouge donne la cause et le correctif. Android : <code>adb devices</code> doit afficher « device » (pas « unauthorized »). iOS : mode développeur, confiance, Xcode ouvert une fois.', 'Device card “⋯” menu → <b>Diagnostics</b>: each red row gives the cause and the fix. Android: <code>adb devices</code> must show “device” (not “unauthorized”). iOS: Developer Mode, trust, Xcode opened once.')}</p></details>
 <details><summary>${t('« Exploration en cours… » ne progresse pas', '“Exploring…” does not progress')}</summary><p>${b('Le message affiche l’étape en cours. Si la connexion à l’appareil dépasse 3 minutes, une erreur indique de rouvrir son diagnostic. Consultez <code>~/Library/Application Support/Cybermonkey/logs/cybermonkey.log</code>. Un reste d’agent iOS d’une session précédente est nettoyé automatiquement au lancement.', 'The message shows the current step. If connecting to the device exceeds 3 minutes an error asks you to open its diagnostics. Check <code>~/Library/Application Support/Cybermonkey/logs/cybermonkey.log</code>. A leftover iOS agent from a previous session is cleaned up on launch.')}</p></details>
@@ -228,19 +298,167 @@ ${shot('parametres-ia', 'Paramètres IA')}
 <details><summary>${t('iOS : « Connexion iOS impossible » / signature', 'iOS: “iOS connection impossible” / signing')}</summary><p>${b('Vérifiez Team ID, Bundle ID WDA et compte Apple dans Xcode (<i>Diagnostic → Signature WDA</i>). Pour un simulateur, aucune signature n’est requise.', 'Check Team ID, WDA Bundle ID and your Apple account in Xcode (<i>Diagnostics → WDA signing</i>). A simulator needs no signing.')}</p></details>
 <details><summary>${t('Où se trouvent mes projets ?', 'Where are my projects?')}</summary><p>${b('Dans le dossier choisi dans Paramètres → Général (par défaut <code>~/Documents/Cybermonkey/Projects</code>). « Afficher le dossier » dans le menu du projet l’ouvre.', 'In the folder set in Settings → General (default <code>~/Documents/Cybermonkey/Projects</code>). “Show folder” in the project menu opens it.')}</p></details>
 <details><summary>${t('Comment mettre à jour ?', 'How do I update?')}</summary><p>${b('L’application vérifie les releases stables au démarrage et toutes les 4 heures ; Paramètres → Mises à jour permet de vérifier, télécharger (empreinte SHA-256 contrôlée) et installer.', 'The app checks stable releases at startup and every 4 hours; Settings → Updates lets you check, download (SHA-256 verified) and install.')}</p></details>
+<details><summary>${t('Une popup bloque mon test', 'A popup blocks my test')}</summary><p>${b('Créez un <b>gestionnaire d’imprévu</b> : un scénario dont vous cochez « Gestionnaire d’imprévu », avec les repères de la popup et les pas pour la fermer. Il se déclenche seul quand un pas échoue alors que la popup est affichée, puis le pas est rejoué. Voir <a href="fonctionnalites.html#imprevus">Fonctionnalités → Imprévus</a>.', 'Create an <b>interruption handler</b>: a scenario where you tick “Interruption handler”, with the popup’s markers and the steps to close it. It runs by itself when a step fails while the popup is showing, then the step is replayed. See <a href="fonctionnalites.html#imprevus">Features → Interruptions</a>.')}</p></details>
+<details><summary>${t('Un pas est marqué « instable »', 'A step is marked “unstable”')}</summary><p>${b('Il n’a réussi qu’au deuxième essai : il fonctionne, mais pas de façon fiable (rendu lent, animation, texte qui change, sélecteur fragile). Le tableau Progression → Stabilité montre son historique ; l’outil MCP <code>audit_selectors</code> repère les sélecteurs fragiles.', 'It only passed on the second attempt: it works, but not reliably (slow render, animation, changing text, fragile selector). Progress → Stability shows its history; the MCP tool <code>audit_selectors</code> spots fragile selectors.')}</p></details>
+<details><summary>${t('La vidéo d’un échec n’apparaît pas', 'The video of a failure does not show')}</summary><p>${b('Réglage Paramètres → Exécution → Vidéo. Sur un iPhone réel, l’enregistrement exige <code>ffmpeg</code> (<code>brew install ffmpeg</code>). Au-delà d’environ 30 Mo, la vidéo est abandonnée.', 'Setting Settings → Execution → Video. On a real iPhone, recording needs <code>ffmpeg</code> (<code>brew install ffmpeg</code>). Above about 30 MB the video is dropped.')}</p></details>
+<details><summary>${t('Comment lancer sur la recette plutôt que la préprod ?', 'How do I run on staging rather than pre-prod?')}</summary><p>${b('Choisissez l’environnement dans le sélecteur de la barre latérale (ou avec l’outil MCP <code>select_environment</code>) : ses variables remplacent les variables communes pour la création, l’exécution et les essais.', 'Pick the environment in the sidebar selector (or with the MCP tool <code>select_environment</code>): its variables replace the common ones for creation, runs and tries.')}</p></details>
 <h2 id="contact">${t('Contact et contribution', 'Contact and contributing')}</h2>
 ${P('Signalez un problème sur <a href="' + REPO + '/issues">GitHub</a> en précisant la version, l’OS hôte et cible, l’étape concernée et un extrait <b>sans identifiants</b> du journal ou de la trace d’exploration.', 'Report an issue on <a href="' + REPO + '/issues">GitHub</a> with the version, host and target OS, the step involved and an excerpt <b>without credentials</b> of the log or exploration trace.')}
+</article></div>`;
+
+/* ============================== FEATURES (robustness & logic) ============================== */
+const featToc = [
+  ['pas', t('Ce qu’un pas sait faire', 'What a step can do')],
+  ['logique', t('Logique des scénarios', 'Scenario logic')],
+  ['env', t('Environnements', 'Environments')],
+  ['fiabilite', t('Fiabilité', 'Reliability')],
+  ['imprevus', t('Imprévus', 'Interruptions')],
+  ['diagnostic', t('Diagnostic', 'Diagnostics')],
+  ['vitesse', t('Vitesse', 'Speed')],
+  ['mcp', 'MCP'],
+  ['limites', t('Limites connues', 'Known limits')],
+];
+const features = `<div class="wrap doc">${toc(featToc)}<article class="prose">
+<p class="eyebrow"><i></i>${t('Fonctionnalités avancées', 'Advanced features')}</p>
+<h1>${t('Des tests qui tiennent dans la durée', 'Tests that last')}</h1>
+${P('Un test mobile échoue pour mille raisons qui ne sont pas des bugs : une popup, une session expirée, un écran qui s’affiche une seconde trop tard, un sélecteur qui bouge. Cette page décrit ce que Cybermonkey fait pour que <b>un échec veuille dire quelque chose</b>, et pour vous donner de quoi comprendre vite quand c’en est un.', 'A mobile test fails for a thousand reasons that are not bugs: a popup, an expired session, a screen that shows up a second late, a selector that moved. This page describes what Cybermonkey does so that <b>a failure means something</b>, and gives you what you need to understand it quickly when it does.')}
+
+<h2 id="pas">${t('Ce qu’un pas sait faire', 'What a step can do')}</h2>
+${P('Chaque pas porte une <b>variante par OS</b> (Android et iOS) : un sélecteur, une opération, une valeur. Les opérations dépassent le simple appui :', 'Each step carries a <b>variant per OS</b> (Android and iOS): a selector, an operation, a value. Operations go well beyond a tap:')}
+<table><tr><th>${t('Famille', 'Family')}</th><th>${t('Opérations', 'Operations')}</th></tr>
+<tr><td>${t('Gestes', 'Gestures')}</td><td>${b('appuyer, <b>appui long</b> (durée réglable), <b>double appui</b>, saisir, effacer, glisser, retour, attendre ; <b>défiler jusqu’à ce qu’un composant soit visible</b> (listes longues : plus besoin de compter les glissements).', 'tap, <b>long press</b> (adjustable duration), <b>double tap</b>, type, clear, swipe, back, wait; <b>scroll until a component is visible</b> (long lists: no more counting swipes).')}</td></tr>
+<tr><td>${t('Application', 'Application')}</td><td>${b('<b>lancer, relancer, fermer, mettre en arrière-plan</b> l’application du projet (ou une autre, par son identifiant).', '<b>launch, relaunch, close, send to background</b> the project application (or another one, by id).')}</td></tr>
+<tr><td>${t('Liens', 'Links')}</td><td>${b('<b>ouvrir un lien profond</b> (<code>monapp://commande/42</code>) : le chemin le plus court vers un écran.', '<b>open a deep link</b> (<code>myapp://order/42</code>): the shortest way to a screen.')}</td></tr>
+<tr><td>${t('Système', 'System')}</td><td>${b('<b>répondre à une alerte ou une permission</b> (accepter, refuser, ou le libellé exact du bouton, avec attente), orientation portrait/paysage, masquer le clavier.', '<b>answer an alert or a permission</b> (accept, decline, or the exact button label, with waiting), portrait/landscape, hide the keyboard.')}</td></tr>
+<tr><td>${t('Lecture', 'Reading')}</td><td>${b('<b>capturer le texte</b> d’un composant dans une variable (avec une expression régulière facultative) pour le réutiliser plus loin.', '<b>capture the text</b> of a component into a variable (with an optional regular expression) to reuse it later.')}</td></tr>
+</table>
+${P('<b>Vérifications</b> : visible, absent, texte exact, texte contenant, actif, sélectionné, <b>expression régulière</b>, <b>nombre de composants</b> (<code>3</code>, <code>&gt;=2</code>, <code>&lt;5</code>). Les pas fonctionnent aussi sur une <b>position d’écran</b> pour les vues web que l’accessibilité ne voit pas.', '<b>Checks</b>: visible, absent, exact text, text containing, enabled, selected, <b>regular expression</b>, <b>component count</b> (<code>3</code>, <code>&gt;=2</code>, <code>&lt;5</code>). Steps also work on a <b>screen position</b> for web views the accessibility tree cannot see.')}
+
+<h2 id="logique">${t('Logique des scénarios', 'Scenario logic')}</h2>
+<ul>
+<li>${b('<b>Conditions</b> (« Exécuter seulement si… ») : une vérification par OS contrôlée juste avant le pas. Non remplie, le pas et ses enfants sont ignorés <i>sans échec</i> : « si la bannière cookies est visible, la fermer ». Un délai court évite d’attendre un élément absent.', '<b>Conditions</b> (“Run only if…”): a per-OS check made right before the step. Not met, the step and its children are skipped <i>without failing</i>: “if the cookie banner is visible, close it”. A short timeout avoids waiting for a missing element.')}</li>
+<li>${b('<b>Appel de sous-scénario</b> : une action peut exécuter un autre scénario à sa place. « Se connecter » n’est écrit qu’une fois. Les boucles d’appels sont refusées et un scénario encore appelé ne peut pas être supprimé.', '<b>Sub-scenario call</b>: an action can run another scenario in its place. “Log in” is written once. Call loops are refused and a scenario still in use cannot be deleted.')}</li>
+<li>${b('<b>Jeux de données</b> : un scénario joué une fois par ligne d’un tableau (50 lignes max), chaque colonne devenant une variable <code>&#36;{COLONNE}</code>. L’app est relancée entre deux lignes ; le rapport indique la ligne, et un pas en échec sur une seule ligne reste « échoué » dans la campagne.', '<b>Datasets</b>: a scenario played once per row of a table (50 rows max), each column becoming a <code>&#36;{COLUMN}</code> variable. The app is relaunched between rows; the report shows the row, and a step that fails on a single row stays “failed” in the campaign.')}</li>
+<li>${b('<b>Capture de valeur</b> : lisez un numéro de commande ou un code à l’écran, gardez-le dans <code>&#36;{NOM}</code> et utilisez-le dans les pas suivants (valeur, attendu, sélecteur).', '<b>Value capture</b>: read an order number or a code on screen, keep it in <code>&#36;{NAME}</code> and use it in later steps (value, expectation, selector).')}</li>
+</ul>
+
+<h2 id="env">${t('Environnements', 'Environments')}</h2>
+${P('Un projet peut porter plusieurs <b>environnements</b> (recette, préproduction, production…). Chacun a ses propres variables, qui <b>remplacent</b> les variables communes de même nom ; les autres restent héritées. Dans <b>Variables</b>, onglets « Communes » et un onglet par environnement ; dans la barre latérale, un sélecteur change l’environnement du projet.', 'A project can hold several <b>environments</b> (staging, pre-production, production…). Each has its own variables, which <b>override</b> the common variables of the same name; the others stay inherited. In <b>Variables</b>, a “Common” tab plus one tab per environment; in the sidebar, a selector changes the project’s environment.')}
+${P('Le choix est <b>global au projet</b> : il s’applique à la création (l’IA voit les variables de l’environnement), à l’exécution, aux essais manuels et au serveur MCP (<code>select_environment</code>). Chaque rapport garde le nom de l’environnement utilisé. Les valeurs restent des variables du projet, <b>pas</b> un coffre-fort chiffré.', 'The choice is <b>project-wide</b>: it applies to creation (the AI sees the environment’s variables), runs, manual tries and the MCP server (<code>select_environment</code>). Each report keeps the name of the environment used. Values remain project variables, <b>not</b> an encrypted vault.')}
+
+<h2 id="fiabilite">${t('Fiabilité : moins de faux échecs', 'Reliability: fewer false failures')}</h2>
+<ul>
+<li>${b('<b>Relance ciblée</b> : un pas dont le composant est introuvable ou dont la vérification échoue est rejoué <i>une fois</i> (2<sup>e</sup> essai court). S’il passe, il est marqué <b>instable</b> au lieu d’être masqué. Jamais après une saisie, un défilement ou une erreur d’appareil : on ne duplique pas un effet.', '<b>Targeted retry</b>: a step whose component is not found or whose check fails is replayed <i>once</i> (short 2<sup>nd</sup> attempt). If it passes it is marked <b>unstable</b> instead of being hidden. Never after typing, scrolling or a device error: an effect is never duplicated.')}</li>
+<li>${b('<b>Appui perdu</b> : juste après un relancement l’app dessine encore son écran de lancement et un tap envoyé alors est perdu. Cybermonkey attend que l’app soit stable, et si une navigation ne se confirme pas alors que l’écran est resté inactif avec le composant toujours là, il répète l’appui une fois. Un spinner ou un bouton grisé = pas de second appui.', '<b>Lost tap</b>: right after a relaunch the app is still drawing its launch screen and a tap sent then is lost. Cybermonkey waits for the app to settle, and if a navigation is not confirmed while the screen stayed idle with the component still there, it repeats the tap once. A spinner or a disabled button = no second tap.')}</li>
+<li>${b('<b>Historique de stabilité</b> : pour chaque pas et OS, « passé 8 fois sur 10 » et un verdict — stable, <b>instable</b>, <b>régression</b>, premier échec, toujours en échec. Visible dans Progression et joint à chaque échec renvoyé par MCP : il distingue un bug d’un test fragile.', '<b>Stability history</b>: for each step and OS, “passed 8 times out of 10” and a verdict — stable, <b>unstable</b>, <b>regression</b>, first failure, always failing. Shown in Progress and attached to every failure returned by MCP: it tells a bug from a fragile test.')}</li>
+<li>${b('<b>Sélecteurs durables</b> : chaque sélecteur est classé — durable (identifiant technique), lié au texte affiché, fragile (XPath positionnel), par position. L’éditeur et la création IA avertissent ; l’outil MCP <code>audit_selectors</code> propose l’identifiant à demander aux développeurs et comment l’ajouter (<code>accessibilityIdentifier</code>, <code>testTag</code>, <code>Semantics</code>).', '<b>Durable selectors</b>: each selector is rated — durable (technical id), tied to displayed text, fragile (positional XPath), by position. The editor and AI creation warn; the MCP tool <code>audit_selectors</code> proposes the identifier to ask developers for and how to add it (<code>accessibilityIdentifier</code>, <code>testTag</code>, <code>Semantics</code>).')}</li>
+<li>${b('<b>Réparations IA visibles</b> : un bandeau « N sélecteurs réparés, tout appliquer » écrit les réparations dans les scénarios (l’ancien sélecteur devient un secours) ; sinon chaque run les répare à nouveau, plus lentement, et le changement de l’app reste caché. Outil MCP : <code>apply_healed_selectors</code>.', '<b>Visible AI repairs</b>: a “N selectors repaired, apply all” banner writes the repairs into the scenarios (the old selector becomes a fallback); otherwise every run repairs them again, more slowly, and the app change stays hidden. MCP tool: <code>apply_healed_selectors</code>.')}</li>
+</ul>
+
+<h2 id="imprevus">${t('Imprévus : popups, session expirée, plantage', 'Interruptions: popups, expired session, crash')}</h2>
+${P('Une popup, un toast, un message « session expirée » ou un plantage peuvent survenir <b>à n’importe quel moment</b>, en création comme en exécution. Quand un pas échoue, Cybermonkey regarde si quelque chose s’est mis en travers avant de conclure à un échec, dans cet ordre :', 'A popup, a toast, a “session expired” message or a crash can strike <b>at any moment</b>, in creation as in execution. When a step fails, Cybermonkey checks whether something got in the way before concluding it is a failure, in this order:')}
+<ol>
+<li>${b('<b>L’app n’est plus au premier plan</b> (plantage, fermeture) : elle est relancée, puis l’app revient à l’écran d’origine.', '<b>The app is no longer in the foreground</b> (crash, closed): it is relaunched, then brought back to the original screen.')}</li>
+<li>${b('<b>Une boîte de dialogue bloque l’écran</b> (permission, alerte système ou de l’app) : les cas évidents sont traités par règle — permission accordée, suivi publicitaire refusé, bouton unique inoffensif — et l’IA tranche les cas flous. Un bouton qui supprime, déconnecte ou paie n’est <i>jamais</i> pressé.', '<b>A dialog blocks the screen</b> (permission, system or app alert): obvious cases are handled by rule — permission allowed, ad tracking declined, a single harmless button — and the AI settles the unclear ones. A button that deletes, logs out or pays is <i>never</i> pressed.')}</li>
+<li>${b('<b>Un de vos gestionnaires reconnaît l’écran</b> : voir ci-dessous.', '<b>One of your handlers recognises the screen</b>: see below.')}</li>
+<li>${b('<b>En dernier recours, l’IA</b> identifie l’intrus et ferme une popup inattendue avec le seul bouton sans effet métier (fermer, OK, plus tard). Si le seul bouton est risqué ou si elle hésite, elle ne touche à rien.', '<b>As a last resort, the AI</b> identifies the intruder and closes an unexpected popup with the one button that has no business effect (close, OK, later). If the only button is risky or it is unsure, it touches nothing.')}</li>
+</ol>
+<h3>${t('Les gestionnaires d’imprévus', 'Interruption handlers')}</h3>
+${P('Un <b>gestionnaire</b> est un scénario ordinaire à qui l’on dit « <i>quand cet écran est affiché</i> » (ses repères, comme n’importe quelle identité d’écran) et « <i>ensuite</i> ». Il n’entre dans aucune campagne : il se déclenche seul quand un pas échoue alors que son écran est présent, puis le pas est rejoué. Il se crée, s’édite, s’enregistre et se rejoue comme n’importe quel scénario, avec l’IA ou à la main, et peut <b>appeler</b> d’autres scénarios.', 'A <b>handler</b> is an ordinary scenario to which you say “<i>when this screen is showing</i>” (its markers, like any screen identity) and “<i>afterwards</i>”. It is part of no campaign: it runs by itself when a step fails while its screen is present, then the step is replayed. It is created, edited, recorded and replayed like any scenario, with AI or by hand, and can <b>call</b> other scenarios.')}
+${P('<b>Reprise</b> : « rejouer le pas là où l’app se trouve », ou « <b>revenir à l’écran d’origine</b> puis rejouer » — l’écran d’où le pas est parti est retrouvé par le lien profond de l’écran, puis les navigations connues. Les gestionnaires <b>s’enchaînent</b> (jusqu’à 3 par échec).', '<b>Resume</b>: “replay the step where the app is”, or “<b>go back to the original screen</b> then replay” — the screen the step started from is found through the screen’s deep link, then the known navigations. Handlers <b>chain</b> (up to 3 per failure).')}
+<div class="callout">${b('<b>Exemple : reconnexion rapide.</b> Un pas échoue parce qu’une popup « Session expirée » le recouvre. Gestionnaire 1 — écran : le texte de la popup ; pas : appuyer sur OK. L’appui déconnecte et ramène l’écran de connexion. Gestionnaire 2 — écran : l’écran de connexion ; pas : un appel au scénario « Se connecter » ; reprise : <i>revenir à l’écran d’origine</i>. Le moteur dit OK, se reconnecte, retourne là où il était, et rejoue le pas : passé, avec « imprévu géré » dans le rapport.', '<b>Example: quick reconnection.</b> A step fails because an “Session expired” popup covers it. Handler 1 — screen: the popup text; step: tap OK. The tap logs out and brings the login screen. Handler 2 — screen: the login screen; step: a call to the “Log in” scenario; resume: <i>go back to the original screen</i>. The engine taps OK, logs in again, goes back where it was, and replays the step: passed, with “interruption handled” in the report.')}</div>
+${P('<b>Garde-fous</b> : jamais d’imprévu dans un gestionnaire ; au plus 3 tours par pas, une douzaine par exécution, un nombre maximum de déclenchements par gestionnaire ; tout est tracé dans le rapport (ce qui a été vu, ce qui a été fait, si ça a marché). Le réglage <i>Imprévus</i> (Paramètres → Exécution) permet de choisir : complet, gestionnaires et app disparue seulement, ou désactivé. En <b>création</b>, les dialogues système sont répondus pour l’agent, le rejeu de la proposition applique vos gestionnaires, et l’agent est invité à ne pas inclure dans le scénario une popup qu’il a dû fermer.', '<b>Safeguards</b>: never an interruption inside a handler; at most 3 rounds per step, a dozen per run, a maximum number of triggers per handler; everything is traced in the report (what was seen, what was done, whether it worked). The <i>Interruptions</i> setting (Settings → Execution) lets you choose: full, handlers and vanished app only, or off. In <b>creation</b>, system dialogs are answered for the agent, the proposal replay applies your handlers, and the agent is asked not to include a popup it had to close in the scenario.')}
+
+<h2 id="diagnostic">${t('Diagnostic : comprendre un échec', 'Diagnostics: understanding a failure')}</h2>
+<ul>
+<li>${b('<b>Vidéo</b> : chaque scénario est filmé, la vidéo n’est gardée que s’il échoue. Elle se lit dans le détail du pas, ouverte quelques secondes avant lui. Réglable (Paramètres → Exécution).', '<b>Video</b>: every scenario is filmed and the video is kept only if it fails. It plays in the step detail, opened a few seconds before it. Adjustable (Settings → Execution).')}</li>
+<li>${b('<b>Journal de l’appareil</b> : syslog iOS filtré sur le processus de l’app, logcat Android sur son package. Les lignes utiles autour de l’échec sont jointes au pas et à l’analyse IA.', '<b>Device log</b>: iOS syslog filtered on the app’s process, Android logcat on its package. The useful lines around the failure are attached to the step and to the AI analysis.')}</li>
+<li>${b('<b>Signes de problème réseau</b> détectés dans ce journal : hors ligne, délai dépassé, connexion refusée, certificat/TLS, réponses 5xx, accès refusé 401/403 — « ce n’est pas l’app, c’est le réseau ».', '<b>Signs of network trouble</b> found in that log: offline, timeout, connection refused, certificate/TLS, 5xx responses, 401/403 access denied — “it is not the app, it is the network”.')}</li>
+<li>${b('<b>Comparaison visuelle</b> avec la dernière réussite du même pas : les zones qui ont changé sont entourées, avec le pourcentage de l’écran qui diffère (la barre d’état est ignorée). Un écart quasi nul oriente vers un problème de timing ou de données, un écart massif vers un autre écran.', '<b>Visual comparison</b> with the last pass of the same step: changed areas are outlined, with the percentage of the screen that differs (the status bar is ignored). A near-zero gap points to timing or data, a huge one to another screen.')}</li>
+</ul>
+
+<h2 id="vitesse">${t('Vitesse', 'Speed')}</h2>
+<ul>
+<li>${b('Android et iOS sont pilotés <b>en parallèle</b> : la durée est celle de l’OS le plus lent, pas la somme.', 'Android and iOS are driven <b>in parallel</b>: the duration is that of the slowest OS, not the sum.')}</li>
+<li>${b('<b>Attentes sur condition</b> : détection de changement d’écran en quelques requêtes légères, nouvel essai immédiat puis espacé, attente du clavier plutôt qu’un délai fixe.', '<b>Condition-based waits</b>: screen-change detection in a few light requests, immediate then spaced retries, waiting for the keyboard rather than a fixed delay.')}</li>
+<li>${b('<b>Raccourci par lien profond</b> : un écran de départ peut porter un lien (par OS). Il est essayé <i>avant</i> de relancer l’app et de rejouer un parcours ; s’il n’atterrit pas au bon endroit, le chemin sûr reprend.', '<b>Deep-link shortcut</b>: a start screen can carry a link (per OS). It is tried <i>before</i> relaunching the app and replaying a route; if it does not land in the right place, the safe path takes over.')}</li>
+<li>${b('<b>Profil de durée</b> : Progression liste les pas les plus lents et la part du temps passée en preuves plutôt qu’à agir ; l’outil MCP <code>slowest_steps</code> y ajoute des suggestions. Le niveau de preuves (tout, écrans clés, échecs) se règle.', '<b>Duration profile</b>: Progress lists the slowest steps and the share of time spent on evidence rather than acting; the MCP tool <code>slowest_steps</code> adds suggestions. The evidence level (all, key screens, failures) is adjustable.')}</li>
+</ul>
+
+<h2 id="mcp">MCP</h2>
+${P('Le serveur MCP intégré (Réglages → MCP) expose <b>45 outils</b> en six groupes, chacun activable séparément. Toutes les réponses sont structurées et expliquées : résumé, résultat par OS, étape en échec avec message, historique, analyse, capture, journal, et « quoi faire ensuite ».', 'The built-in MCP server (Settings → MCP) exposes <b>45 tools</b> in six groups, each switchable separately. Every answer is structured and explained: summary, per-OS result, failing step with message, history, analysis, capture, log, and “what to do next”.')}
+<table><tr><th>${t('Groupe', 'Group')}</th><th>${t('Outils', 'Tools')}</th></tr>
+<tr><td>${t('Lecture', 'Read')}</td><td><code>list_projects</code>, <code>list_scenarios</code>, <code>get_scenario</code>, <code>list_devices</code>, <code>get_device_health</code>, <code>list_campaigns</code>, <code>audit_selectors</code></td></tr>
+<tr><td>${t('Observation', 'Observe')}</td><td><code>screenshot</code>, <code>inspect_screen</code>, <code>get_campaign_report</code>, <code>slowest_steps</code>, <code>flaky_steps</code>, <code>find_path</code>, <code>wait_for</code></td></tr>
+<tr><td>${t('Exécution', 'Execute')}</td><td><code>run_scenario</code>, <code>run_campaign</code>, <code>run_folder</code>, <code>run_element</code>, <code>run_navigation</code>, <code>cancel_run</code>, <code>get_run_status</code></td></tr>
+<tr><td>${t('Création', 'Create')}</td><td><code>create_scenario_from_prompt</code>, <code>replay_proposal</code>, <code>accept_proposal</code>, <code>update_node</code>, <code>add_nodes</code>, <code>delete_node</code>, <code>apply_healed_selectors</code></td></tr>
+<tr><td>${t('Utilitaire', 'Utility')}</td><td><code>relaunch_app</code>, <code>list_variables</code>, <code>select_environment</code>, <code>open_project</code></td></tr>
+<tr><td>${t('Exploration', 'Explore')}</td><td><code>explore</code>, <code>click</code>, <code>type_text</code>, <code>swipe</code>, <code>back</code>, <code>long_press</code>, <code>double_tap</code>, <code>scroll_to</code>, <code>check</code>, <code>open_link</code>, <code>answer_alert</code>, <code>app_control</code>, <code>rotate</code></td></tr>
+</table>
+${P('<code>add_nodes</code> et <code>update_node</code> acceptent aussi les conditions (<code>when</code>), appels (<code>call</code>), jeux de données (<code>dataset</code>), gestionnaires (<code>handler</code>) et l’opération <code>capture</code>. Détail : <a href="https://github.com/pickywawa/cybermonkey/blob/main/docs/mcp.md">docs/mcp.md</a>.', '<code>add_nodes</code> and <code>update_node</code> also accept conditions (<code>when</code>), calls (<code>call</code>), datasets (<code>dataset</code>), handlers (<code>handler</code>) and the <code>capture</code> operation. Details: <a href="https://github.com/pickywawa/cybermonkey/blob/main/docs/mcp.md">docs/mcp.md</a>.')}
+
+<h2 id="limites">${t('Limites connues', 'Known limits')}</h2>
+<ul>
+<li>${b('La vidéo sur <b>iPhone réel</b> exige <code>ffmpeg</code> ; sans lui elle est désactivée automatiquement, sans effet sur le résultat. Les enregistrements Android sont limités à 3 minutes par scénario.', 'Video on a <b>real iPhone</b> requires <code>ffmpeg</code>; without it it is disabled automatically, with no effect on the result. Android recordings are limited to 3 minutes per scenario.')}</li>
+<li>${b('Les requêtes réseau elles-mêmes ne sont pas capturées (cela demanderait un proxy) : seuls les signes présents dans le journal de l’appareil sont détectés.', 'Network requests themselves are not captured (that would take a proxy): only the signs present in the device log are detected.')}</li>
+<li>${b('Les boîtes de dialogue <b>dessinées par l’app</b> (hors système) sont gérées par vos gestionnaires ou, en dernier recours, par l’IA ; elles ne sont pas visibles comme alertes natives.', 'Dialogs <b>drawn by the app</b> (not system ones) are handled by your handlers or, as a last resort, by the AI; they are not visible as native alerts.')}</li>
+<li>${b('Un défilement jusqu’à un composant ne voit que l’arbre d’accessibilité : sur Android, un élément d’une liste pas encore affichée peut ne pas exister dans l’arbre avant d’avoir défilé.', 'Scrolling to a component only sees the accessibility tree: on Android, an element of a list not yet displayed may not exist in the tree before scrolling.')}</li>
+</ul>
 </article></div>`;
 
 const notFound = `<div class="narrow" style="padding:120px 0;text-align:center"><h1>404</h1><p class="lead" style="margin:0 auto 28px">${t('Cette page n’existe pas.', 'This page does not exist.')}</p><a class="btn primary" href="index.html">${t('Retour à l’accueil', 'Back home')}</a></div>`;
 
 const pages = [
-  { file: 'index.html', title: { fr: 'Cybermonkey — Vos tests mobiles. Les preuves en plus.', en: 'Cybermonkey — Your mobile tests. With proof built in.' }, desc: { fr: 'Créez, enregistrez et rejouez vos scénarios Android et iOS avec l’IA. Captures, cartographie et rapports dans un atelier QA mobile open source.' }, body: home },
-  { file: 'fonctionnement.html', title: { fr: 'Fonctionnement — Cybermonkey', en: 'How it works — Cybermonkey' }, desc: { fr: 'Création par IA, enregistrement, import, exécution rapide, réparation de sélecteurs, cartographie : le fonctionnement détaillé de Cybermonkey.' }, body: how },
-  { file: 'aide.html', title: { fr: 'Aide — Cybermonkey', en: 'Help — Cybermonkey' }, desc: { fr: 'Installation, configuration Android et iOS, IA, réglages et dépannage de Cybermonkey.' }, body: help },
-  { file: '404.html', title: { fr: 'Page introuvable — Cybermonkey', en: 'Page not found — Cybermonkey' }, desc: { fr: 'Page introuvable.' }, body: notFound },
+  {
+    file: 'index.html',
+    title: {
+      fr: 'Cybermonkey — Vos tests mobiles. Les preuves en plus.',
+      en: 'Cybermonkey — Your mobile tests. With proof built in.',
+    },
+    desc: {
+      fr: 'Créez, enregistrez et rejouez vos scénarios Android et iOS avec l’IA. Captures, cartographie et rapports dans un atelier QA mobile open source.',
+    },
+    body: home,
+  },
+  {
+    file: 'fonctionnement.html',
+    title: { fr: 'Fonctionnement — Cybermonkey', en: 'How it works — Cybermonkey' },
+    desc: {
+      fr: 'Création par IA, enregistrement, import, exécution rapide, réparation de sélecteurs, cartographie : le fonctionnement détaillé de Cybermonkey.',
+    },
+    body: how,
+  },
+  {
+    file: 'fonctionnalites.html',
+    title: { fr: 'Fonctionnalités — Cybermonkey', en: 'Features — Cybermonkey' },
+    desc: {
+      fr: 'Pas riches, logique de scénario, environnements, fiabilité, imprévus (popups, session expirée, plantage), diagnostic vidéo/journal/réseau, vitesse et MCP.',
+      en: 'Rich steps, scenario logic, environments, reliability, interruptions (popups, expired session, crash), video/log/network diagnostics, speed and MCP.',
+    },
+    body: features,
+  },
+  {
+    file: 'aide.html',
+    title: { fr: 'Aide — Cybermonkey', en: 'Help — Cybermonkey' },
+    desc: {
+      fr: 'Installation, configuration Android et iOS, IA, réglages et dépannage de Cybermonkey.',
+    },
+    body: help,
+  },
+  {
+    file: '404.html',
+    title: { fr: 'Page introuvable — Cybermonkey', en: 'Page not found — Cybermonkey' },
+    desc: { fr: 'Page introuvable.' },
+    body: notFound,
+  },
 ];
 for (const p of pages) writeFileSync(new URL(`../site/${p.file}`, import.meta.url), page(p));
-writeFileSync(new URL('../site/robots.txt', import.meta.url), `User-agent: *\nAllow: /\nSitemap: ${BASE}sitemap.xml\n`);
-writeFileSync(new URL('../site/sitemap.xml', import.meta.url), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${['', 'fonctionnement.html', 'aide.html'].map((p) => `  <url><loc>${BASE}${p}</loc></url>`).join('\n')}\n</urlset>\n`);
+writeFileSync(
+  new URL('../site/robots.txt', import.meta.url),
+  `User-agent: *\nAllow: /\nSitemap: ${BASE}sitemap.xml\n`,
+);
+writeFileSync(
+  new URL('../site/sitemap.xml', import.meta.url),
+  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${['', 'fonctionnement.html', 'fonctionnalites.html', 'aide.html'].map((p) => `  <url><loc>${BASE}${p}</loc></url>`).join('\n')}\n</urlset>\n`,
+);
 console.log('site generated:', pages.map((p) => p.file).join(', '));

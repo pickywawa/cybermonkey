@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 
-export type SettingsTab = 'general' | 'ai' | 'creation' | 'execution' | 'devices' | 'updates';
+export type SettingsTab =
+  'general' | 'ai' | 'creation' | 'execution' | 'devices' | 'mcp' | 'updates';
 /** Cross-cutting UI requests (dialogs owned by the shell) that any feature can trigger. */
 export interface Ui {
   openSettings(tab?: SettingsTab): void;
