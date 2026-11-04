@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { integrationsSchema } from './integrations.js';
+import { remoteSchema } from './remote.js';
 
 const localUrl = z
   .string()
@@ -82,6 +84,12 @@ export const settingsSchema = z.object({
   mcpToken: z.string().max(200).default(''),
   /** Tool names switched off; empty = every tool of every group is available. */
   mcpDisabledTools: z.array(z.string().max(80)).max(100).default([]),
+
+  /* Remote devices: adb over the network, device clouds, a device lab. Secrets are kept elsewhere. */
+  remote: remoteSchema.default(remoteSchema.parse({})),
+
+  /* Integrations: Git sync, notifications, test-management tools, tickets. Secrets are kept elsewhere. */
+  integrations: integrationsSchema.default(integrationsSchema.parse({})),
 
   /* Updates & layout */
   checkUpdatesOnStart: z.boolean().default(true),

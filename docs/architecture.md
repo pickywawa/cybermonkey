@@ -20,6 +20,7 @@ src/
       appium/    serveur, sessions + baux d’appareil, opérations (tap, saisie, glisser…), ios-config
       ai/        fournisseurs Claude Code / Codex / Copilot derrière une même interface + relances
       updater/   mises à jour GitHub (SHA-256 vérifié)
+      remote/    appareils distants : endpoint Appium distant, ADB réseau, BrowserStack / Sauce Labs / Device Farm (SigV4) / serveur Appium perso ; voir docs/remote-devices.md
     mcp/         serveur MCP intégré (HTTP local, jeton) : outils par groupe, formats de réponse ; voir docs/mcp.md
     engine/      cas d’usage
       creation/  agent d’exploration IA, réparation/validation des propositions, rejeu, préparation

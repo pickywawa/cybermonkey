@@ -3,6 +3,17 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Device, DeviceScan } from '../../../shared/domain/devices.js';
 import { command } from '../env.js';
+import { tr } from '../../integrations/i18n.js';
+
+/** Devices that are not plugged into this machine: adb over the network and device-cloud profiles. */
+export interface RemoteSource {
+  /** Starts `adb connect` for configured phones that are not listed yet (never waits). */
+  ensureAdb(listed: Set<string>): void;
+  /** Configured adb hosts that are not connected, shown offline with the reason. */
+  adbPlaceholders(listed: Set<string>): Device[];
+  /** Cloud / device-lab profiles of Settings. */
+  profiles(): Promise<Device[]>;
+}
 
 export function parseAdb(text: string): Device[] {
   return text
@@ -44,15 +55,19 @@ export interface WdaConfig {
 export class Devices {
   known = new Map<string, Device>();
   automationScreenshot?: (id: string) => Promise<string | undefined>;
+  remoteSource?: RemoteSource;
   constructor(private wda: () => WdaConfig) {}
 
   async scan(): Promise<DeviceScan> {
     const devices: Device[] = [];
     const diagnostics: string[] = [];
+    let adbListed = new Set<string>();
     const tasks: Promise<void>[] = [
       (async () => {
         try {
-          devices.push(...parseAdb((await command('adb', ['devices', '-l'])).toString()));
+          const found = parseAdb((await command('adb', ['devices', '-l'])).toString());
+          devices.push(...found);
+          adbListed = new Set(found.map((d) => d.id.slice('android:'.length)));
         } catch {
           diagnostics.push('adb-missing');
         }
@@ -116,6 +131,11 @@ export class Devices {
         })(),
       );
     await Promise.all(tasks);
+    if (this.remoteSource) {
+      this.remoteSource.ensureAdb(adbListed);
+      devices.push(...this.remoteSource.adbPlaceholders(adbListed));
+      devices.push(...(await this.remoteSource.profiles().catch(() => [])));
+    }
     const config = this.wda();
     if (process.platform !== 'darwin' && config.udid && config.mode && config.mode !== 'build')
       devices.push({
@@ -136,6 +156,13 @@ export class Devices {
     if (!d || d.status !== 'ready') throw new Error('Appareil non connecté');
     const automated = await this.automationScreenshot?.(id);
     if (automated) return automated;
+    if (d.kind === 'cloud')
+      throw new Error(
+        tr(
+          'Appareil distant : l’écran n’est visible que pendant une session (exécution, exploration ou enregistrement).',
+          'Remote device: the screen is only visible during a session (run, exploration or recording).',
+        ),
+      );
     let buffer: Buffer;
     if (d.platform === 'android')
       buffer = await command('adb', ['-s', id.slice(8), 'exec-out', 'screencap', '-p'], {

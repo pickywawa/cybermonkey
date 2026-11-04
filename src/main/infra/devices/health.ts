@@ -7,10 +7,13 @@ import type { AppiumServer } from '../appium/server.js';
 import { failureComponent, NON_MAC_DOC, WDA_PROVISIONING_DOC } from '../appium/ios-config.js';
 import { command, commandEnv } from '../env.js';
 import { nodeModules } from '../paths.js';
+import { PROVIDER_LABEL } from '../../../shared/domain/remote.js';
+import type { RemoteDevices } from '../remote/remote-devices.js';
 
 /** Step-by-step readiness checks that tell the user exactly what to fix, and how. */
 export class DeviceDiagnostics {
   private probes = new Map<string, { time: number; task: Promise<string> }>();
+  remote?: RemoteDevices;
   constructor(
     private automation: Automation,
     private server: AppiumServer,
@@ -34,6 +37,40 @@ export class DeviceDiagnostics {
     const checks: DeviceCheck[] = [];
     const add = (c: DeviceCheck) => checks.push(c);
     const state = this.automation.connectionState(id);
+
+    // Nothing is plugged in here: what can be wrong is the account, then the session the provider opens.
+    if (device?.remote && this.remote) {
+      const missing = await this.remote.missing(device.remote.provider);
+      add({
+        id: 'provider',
+        label: PROVIDER_LABEL[device.remote.provider],
+        state: missing ? 'error' : 'ok',
+        detail: missing ?? t('Identifiants renseignés.', 'Credentials set.'),
+        fix: t(
+          'Renseignez-les dans Réglages → Appareils → Appareils distants, puis utilisez « Tester ».',
+          'Fill them in Settings → Devices → Remote devices, then use “Test”.',
+        ),
+      });
+      add({
+        id: 'session',
+        label: t('Session distante', 'Remote session'),
+        state: state.failure ? 'error' : state.connected ? 'ok' : 'unknown',
+        detail: state.failure
+          ? t('Dernier échec : ', 'Last failure: ') + state.failure.split('\n')[0]
+          : state.connected
+            ? t('Session ouverte.', 'Session open.')
+            : t(
+                'Aucune session : elle démarre pendant une exécution, une exploration ou un enregistrement (facturée par le fournisseur).',
+                'No session: it starts during a run, an exploration or a recording (billed by the provider).',
+              ),
+        fix: t(
+          'Vérifiez le modèle et la version de l’appareil, et qu’une application a été envoyée au fournisseur. « Reconnecter » ouvre une session à la main.',
+          'Check the device model and version, and that an application was sent to the provider. “Reconnect” opens a session by hand.',
+        ),
+        log: state.failure,
+      });
+      return { deviceId: id, checkedAt: new Date().toISOString(), checks };
+    }
     const ios = device?.platform === 'ios' || id.startsWith('ios:') || id.startsWith('sim:');
 
     add({

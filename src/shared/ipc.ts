@@ -7,6 +7,15 @@ import type { ExportFormat } from './domain/campaign-export.js';
 import type { RecordedStep } from './domain/recording.js';
 import type { UpdateStatus } from './update.js';
 import type { McpStatus } from './mcp.js';
+import type { RemoteProvider, RemoteSettings, RemoteStatus } from './domain/remote.js';
+import type {
+  ConfirmRequest,
+  GitInfo,
+  IntegrationSettings,
+  IntegrationStatus,
+  SecretKey,
+  TestTarget,
+} from './domain/integrations.js';
 
 /** A failing capture next to the last passing one, with what changed outlined. */
 export interface VisualComparison {
@@ -157,6 +166,28 @@ export interface Contract {
 
   'imports.pickFile': [void, { name: string; content: string } | null];
 
+  'integrations.status': [void, IntegrationStatus];
+  'integrations.setSecret': [{ key: SecretKey; value: string | null }, IntegrationStatus];
+  /** Tries one integration with the given (possibly unsaved) configuration; creates and changes nothing. */
+  'integrations.test': [
+    { target: TestTarget; config: IntegrationSettings },
+    { ok: boolean; message: string },
+  ];
+  'integrations.gitInfo': [{ path: string }, GitInfo];
+  /** Look for something to pull / push right now (a confirmation window still decides). */
+  'integrations.gitSync': [{ action: 'pull' | 'push' }, void];
+  /** Remote devices: adb over the network, device clouds, a device lab. */
+  'remote.status': [void, RemoteStatus];
+  'remote.test': [
+    { provider: RemoteProvider; remote: RemoteSettings },
+    { ok: boolean; message: string },
+  ];
+  /** Asks for an application file, sends it to the provider, returns the reference to keep (null: cancelled). */
+  'remote.uploadApp': [{ provider: RemoteProvider; platform: OS }, string | null];
+  'remote.adbConnect': [void, RemoteStatus['adb']];
+  'remote.adbPair': [{ host: string; code: string }, { ok: boolean; message: string }];
+  'integrations.answer': [{ id: string; accepted: boolean; edited?: string }, void];
+
   'updates.status': [void, UpdateStatus];
   'updates.check': [void, UpdateStatus];
   'updates.download': [void, UpdateStatus];
@@ -187,6 +218,7 @@ export type LiveEvent =
   | { type: 'recorder'; projectId: string; steps: RecordedStep[]; running: boolean }
   | { type: 'menu'; action: MenuAction }
   | { type: 'pick'; picked: unknown }
+  | { type: 'confirm'; request: ConfirmRequest }
   | { type: 'workspace' };
 
 export interface Bridge {

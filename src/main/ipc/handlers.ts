@@ -14,6 +14,8 @@ import {
 } from '../../shared/domain/project.js';
 import { nodeSchema, osSchema, variantSchema } from '../../shared/domain/scenario.js';
 import { settingsSchema } from '../../shared/domain/settings.js';
+import { REMOTE_PROVIDERS, remoteSchema } from '../../shared/domain/remote.js';
+import { SECRET_KEYS, TEST_TARGETS, integrationsSchema } from '../../shared/domain/integrations.js';
 import { variablesSchema } from '../../shared/domain/variables.js';
 import type { Contract } from '../../shared/ipc.js';
 import type { Container } from '../container.js';
@@ -81,12 +83,89 @@ export function registerHandlers(
         }),
       );
       await mcp.apply();
+      // New or changed remote devices (adb hosts, cloud profiles) show up without waiting for the next poll.
+      void c.monitor.tick(true);
       return saved;
     },
     settingsSchema,
   );
   ipc.handle('mcp.status', () => mcp.status());
   ipc.handle('mcp.regenerateToken', () => mutated(c.store.regenerateMcpToken()));
+
+  /* remote devices */
+  const adbListing = () =>
+    new Map(
+      [...c.devices.known.values()]
+        .filter((d) => d.id.startsWith('android:'))
+        .map((d) => [
+          d.id.slice('android:'.length),
+          d.status === 'ready' ? ('device' as const) : d.status,
+        ]),
+    );
+  ipc.handle('remote.status', () => c.remote.status(adbListing()));
+  ipc.handle(
+    'remote.test',
+    (i) => c.remote.test(i.provider, i.remote),
+    z.object({ provider: z.enum(REMOTE_PROVIDERS), remote: remoteSchema }),
+  );
+  ipc.handle(
+    'remote.uploadApp',
+    async (i) => {
+      const picked = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+          i.platform === 'android'
+            ? { name: 'Android (.apk)', extensions: ['apk'] }
+            : { name: 'iOS (.ipa)', extensions: ['ipa', 'zip'] },
+        ],
+      });
+      if (picked.canceled || !picked.filePaths[0]) return null;
+      return c.remote.upload(i.provider, i.platform, picked.filePaths[0]);
+    },
+    z.object({ provider: z.enum(REMOTE_PROVIDERS), platform: osSchema }),
+  );
+  ipc.handle('remote.adbConnect', async () => {
+    await c.remote.adb.connectNow(c.settings().remote.adb.hosts);
+    await c.monitor.tick(true);
+    return (await c.remote.status(adbListing())).adb;
+  });
+  ipc.handle(
+    'remote.adbPair',
+    (i) => c.remote.adb.pair(i.host, i.code),
+    z.object({ host: z.string().max(120), code: z.string().max(12) }),
+  );
+
+  /* integrations: git sync, notifications, trackers, tickets */
+  ipc.handle('integrations.status', () => c.integrations.status());
+  ipc.handle(
+    'integrations.setSecret',
+    (i) => c.integrations.setSecret(i.key, i.value),
+    z.object({ key: z.enum(SECRET_KEYS), value: z.string().max(4000).nullable() }),
+  );
+  ipc.handle(
+    'integrations.test',
+    (i) => c.integrations.test(i.target, i.config),
+    z.object({ target: z.enum(TEST_TARGETS), config: integrationsSchema }),
+  );
+  ipc.handle(
+    'integrations.gitInfo',
+    (i) => c.integrations.gitInfo(i.path),
+    z.object({ path: z.string().min(1).max(2000) }),
+  );
+  ipc.handle(
+    'integrations.gitSync',
+    (i) => c.integrations.gitSync(i.action),
+    z.object({ action: z.enum(['pull', 'push']) }),
+  );
+  ipc.handle(
+    'integrations.answer',
+    (i) => c.integrations.answer(i.id, i.accepted, i.edited),
+    z.object({
+      id: z.string().max(80),
+      accepted: z.boolean(),
+      edited: z.string().max(60000).optional(),
+    }),
+  );
 
   /* projects */
   ipc.handle('projects.create', (p) => mutated(c.store.create(p)), projectInput);

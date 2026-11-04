@@ -1,4 +1,10 @@
+import { SECRET_KEYS, type SecretKey } from '../../shared/domain/integrations';
 import type { Bridge, Channel, Contract, LiveEvent } from '../../shared/ipc';
+
+const noSecrets = Object.fromEntries(SECRET_KEYS.map((k) => [k, false])) as Record<
+  SecretKey,
+  boolean
+>;
 import { defaultSettings } from '../../shared/domain/settings';
 import { projectSchema, type Project } from '../../shared/domain/project';
 import { makeNode, makeVariant, type OS, type ScenarioNode } from '../../shared/domain/scenario';
@@ -285,6 +291,43 @@ export function createMockBridge(): Bridge {
     }),
     'mcp.regenerateToken': () =>
       Object.assign(settings, { mcpToken: Math.random().toString(16).slice(2).padEnd(48, '0') }),
+    'remote.status': () => ({
+      adb: [{ host: '192.168.1.20:5555', state: 'connected', detail: 'Connecté' }],
+      providers: {
+        browserstack: { ready: true, missing: '' },
+        saucelabs: { ready: false, missing: 'nom d’utilisateur manquant' },
+        devicefarm: { ready: false, missing: 'ARN manquant' },
+        appium: { ready: false, missing: 'adresse manquante' },
+      },
+    }),
+    'remote.test': () => ({ ok: true, message: 'Aperçu : aucune connexion réelle.' }),
+    'remote.uploadApp': () => 'bs://aperçu',
+    'remote.adbConnect': () => [
+      { host: '192.168.1.20:5555', state: 'connected', detail: 'Connecté' },
+    ],
+    'remote.adbPair': () => ({ ok: true, message: 'Successfully paired (aperçu)' }),
+    'integrations.status': () => ({
+      secrets: noSecrets,
+      journal: [],
+      interactive: true,
+    }),
+    'integrations.setSecret': () => ({
+      secrets: noSecrets,
+      journal: [],
+      interactive: true,
+    }),
+    'integrations.test': () => ({ ok: true, message: 'Aperçu : aucun envoi réel.' }),
+    'integrations.gitInfo': () => ({
+      isRepo: true,
+      root: '/Users/demo/Documents/Cybermonkey/Projects',
+      branch: 'main',
+      upstream: 'origin/main',
+      changes: 3,
+      ahead: 0,
+      behind: 1,
+    }),
+    'integrations.gitSync': () => {},
+    'integrations.answer': () => {},
     'projects.update': (p) => update(p as never),
     'projects.select': () => {},
     'projects.create': () => project,

@@ -15,6 +15,11 @@ import { androidApplicationInfo } from '../devices/app-info.js';
 import { iosCapabilities } from './ios-config.js';
 import { performOperation, StepError } from './operations.js';
 import type { LogEntry } from '../devices/device-log.js';
+import { isRemoteId } from '../../../shared/domain/remote.js';
+import { tr } from '../../integrations/i18n.js';
+import type { AppiumEndpoint } from '../remote/endpoint.js';
+import type { RemoteDevices } from '../remote/remote-devices.js';
+import type { RemoteTarget } from '../remote/providers.js';
 import { prepareWdaRuntime } from './runtime.js';
 import type { AppiumServer } from './server.js';
 import { parseScreen } from './source.js';
@@ -39,6 +44,12 @@ export class Automation {
   private leases = new Map<string, string>();
   private queued = new Map<string, number>();
   private keepAwakeStates = new Map<string, KeepAwake>();
+  /** Device clouds / remote Appium servers: the provider side of each open remote session. */
+  private targets = new Map<string, RemoteTarget>();
+  /** Remote devices the person asked to connect by hand (not under a lease): kept until idle. */
+  private manual = new Set<string>();
+  private lastUse = new Map<string, number>();
+  remote?: RemoteDevices;
   private keepAwakeRunning = false;
   private stopping = false;
   private cleaned = false;
@@ -52,7 +63,10 @@ export class Automation {
     private runtimeHome: string,
     private selectedDevices: () => string[] = () => [],
   ) {
-    this.timer = setInterval(() => void this.keepAwakeTick(), 20000);
+    this.timer = setInterval(() => {
+      void this.keepAwakeTick();
+      void this.sweepRemote();
+    }, 20000);
     this.timer.unref();
   }
 
@@ -66,7 +80,40 @@ export class Automation {
     for (const id of ids) this.leases.set(id, owner);
   }
   release(owner: string) {
-    for (const [id, value] of this.leases) if (value === owner) this.leases.delete(id);
+    for (const [id, value] of this.leases)
+      if (value === owner) {
+        this.leases.delete(id);
+        // A cloud session is billed by the minute: it ends with the run, the exploration or the recording.
+        if (this.targets.has(id)) void this.closeSession(id);
+      }
+  }
+  /** Where this device's Appium session lives: the local server, or its provider's endpoint. */
+  private endpoint(id: string): AppiumEndpoint {
+    return this.targets.get(id)?.endpoint ?? this.server;
+  }
+  /** Ends a remote session and gives the device back to its provider. Never throws. */
+  async closeSession(id: string) {
+    const session = this.sessions.get(id);
+    const target = this.targets.get(id);
+    this.sessions.delete(id);
+    this.targets.delete(id);
+    this.manual.delete(id);
+    this.lastUse.delete(id);
+    if (session && target)
+      await target.endpoint
+        .request(`/session/${session}`, 'DELETE', undefined, 8000)
+        .catch(() => {});
+    await target?.close().catch(() => {});
+  }
+  private async sweepRemote() {
+    const idleMs = (this.settings().remote?.idleMinutes ?? 5) * 60000;
+    for (const id of [...this.targets.keys()])
+      if (
+        !this.leases.has(id) &&
+        !(this.queued.get(id) ?? 0) &&
+        Date.now() - (this.lastUse.get(id) ?? 0) > idleMs
+      )
+        await this.closeSession(id);
   }
   leaseOwner(id: string) {
     return this.leases.get(id);
@@ -77,6 +124,7 @@ export class Automation {
       throw new Error('Appareil occupé par une exécution, une exploration IA ou l’enregistrement');
   }
   private serial<T>(id: string, fn: () => Promise<T>): Promise<T> {
+    this.lastUse.set(id, Date.now());
     this.queued.set(id, (this.queued.get(id) ?? 0) + 1);
     const pending: Promise<T> = (this.locks.get(id) ?? Promise.resolve())
       .catch(() => {})
@@ -109,11 +157,18 @@ export class Automation {
     if (current) return current;
     const pending = this.connecting.get(id);
     if (pending) return pending;
+    if (this.device(id)?.remote && !this.leases.has(id) && !this.manual.has(id))
+      throw new Error(
+        tr(
+          'Appareil distant : sa session (facturée par le fournisseur) ne démarre que pendant une exécution, une exploration ou un enregistrement. Utilisez « Reconnecter » pour l’ouvrir à la main.',
+          'Remote device: its session (billed by the provider) only starts during a run, an exploration or a recording. Use “Reconnect” to open it by hand.',
+        ),
+      );
     const task = this.connect(id)
       .catch((error) => {
         const message = error instanceof Error ? error.message : String(error);
         log('automation', `connect failed ${id}: ${message.slice(0, 400)}`);
-        const ios = !id.startsWith('android:');
+        const ios = !id.startsWith('android:') && !isRemoteId(id);
         this.failures.set(
           id,
           message + (ios && this.server.xcodeLog ? '\n\nXcode :\n' + this.server.xcodeLog : ''),
@@ -140,6 +195,7 @@ export class Automation {
     const device = this.device(id);
     if (!device || device.status !== 'ready') throw new Error('Appareil non connecté');
     log('automation', `connecting ${id}`);
+    if (device.remote) return this.connectRemote(id);
     if (!this.cleaned && !id.startsWith('android:')) {
       this.cleaned = true;
       await this.killWda();
@@ -173,7 +229,7 @@ export class Automation {
       caps['appium:waitForIdleTimeout'] = 0;
       caps['appium:animationCoolOffTimeout'] = 0;
     }
-    const value = await this.server.request(
+    const value = await this.endpoint(id).request(
       '/session',
       'POST',
       { capabilities: { alwaysMatch: caps, firstMatch: [{}] } },
@@ -184,6 +240,29 @@ export class Automation {
     this.failures.delete(id);
     this.sessions.set(id, value.sessionId);
     return value.sessionId;
+  }
+  private async connectRemote(id: string): Promise<string> {
+    if (!this.remote) throw new Error('Appareils distants non disponibles');
+    // A lost session leaves its provider side allocated (Device Farm): give it back before asking for another.
+    await this.closeSession(id);
+    const target = await this.remote.open(id);
+    try {
+      const value = await target.endpoint.request(
+        '/session',
+        'POST',
+        { capabilities: { alwaysMatch: target.capabilities, firstMatch: [{}] } },
+        240000,
+      );
+      if (!value?.sessionId) throw new Error('Appium : session sans identifiant');
+      log('automation', `remote session ready ${id}`);
+      this.failures.delete(id);
+      this.targets.set(id, target);
+      this.sessions.set(id, value.sessionId);
+      return value.sessionId as string;
+    } catch (error) {
+      await target.close().catch(() => {});
+      throw error;
+    }
   }
   /** Run an idempotent call; if the session died, reopen it once and retry. */
   private async withSession<T>(
@@ -204,11 +283,16 @@ export class Automation {
     }
   }
   async reconnect(id: string) {
-    const session = this.sessions.get(id);
-    this.sessions.delete(id);
     this.failures.delete(id);
-    if (session)
-      await this.server.request(`/session/${session}`, 'DELETE', undefined, 3000).catch(() => {});
+    if (this.targets.has(id)) await this.closeSession(id);
+    else {
+      const session = this.sessions.get(id);
+      this.sessions.delete(id);
+      if (session)
+        await this.server.request(`/session/${session}`, 'DELETE', undefined, 3000).catch(() => {});
+    }
+    // The person asked for it by hand: that is the one way to open a remote session without a lease.
+    if (this.device(id)?.remote) this.manual.add(id);
     await this.session(id);
   }
 
@@ -217,7 +301,10 @@ export class Automation {
     this.check(id, owner);
     return this.serial(id, () =>
       this.withSession(id, async (session) => {
-        const screen = parseScreen(await this.server.request(`/session/${session}/source`), id);
+        const screen = parseScreen(
+          await this.endpoint(id).request(`/session/${session}/source`),
+          id,
+        );
         this.emit({ type: 'device', deviceId: id, ready: true });
         return screen;
       }),
@@ -229,7 +316,7 @@ export class Automation {
     return this.serial(id, () =>
       this.withSession(id, async (session) => {
         for (const marker of markers) {
-          const found: unknown[] = await this.server.request(
+          const found: unknown[] = await this.endpoint(id).request(
             `/session/${session}/elements`,
             'POST',
             marker,
@@ -248,7 +335,7 @@ export class Automation {
     if (!session || !platform) return undefined;
     try {
       this.check(id, owner);
-      const state = await this.server.request(`/session/${session}/execute/sync`, 'POST', {
+      const state = await this.endpoint(id).request(`/session/${session}/execute/sync`, 'POST', {
         script: 'mobile: queryAppState',
         args: [platform === 'ios' ? { bundleId: application } : { appId: application }],
       });
@@ -264,7 +351,7 @@ export class Automation {
     if (!session || !platform) return null;
     try {
       this.check(id, owner);
-      const text = await this.server.request(
+      const text = await this.endpoint(id).request(
         `/session/${session}/alert/text`,
         'GET',
         undefined,
@@ -273,10 +360,14 @@ export class Automation {
       let buttons: string[] = [];
       if (platform === 'ios')
         try {
-          const found = await this.server.request(`/session/${session}/execute/sync`, 'POST', {
-            script: 'mobile: alert',
-            args: [{ action: 'getButtons' }],
-          });
+          const found = await this.endpoint(id).request(
+            `/session/${session}/execute/sync`,
+            'POST',
+            {
+              script: 'mobile: alert',
+              args: [{ action: 'getButtons' }],
+            },
+          );
           if (Array.isArray(found)) buttons = found.map(String);
         } catch {
           /* the text is enough to decide with the AI; plain accept/dismiss still work */
@@ -299,7 +390,7 @@ export class Automation {
     if (!session || !platform) return false;
     try {
       this.check(id, owner);
-      await this.server.request(`/session/${session}/appium/start_recording_screen`, 'POST', {
+      await this.endpoint(id).request(`/session/${session}/appium/start_recording_screen`, 'POST', {
         options:
           platform === 'ios'
             ? { videoType: 'mpeg4', videoQuality: 'low', timeLimit: 1800 }
@@ -325,7 +416,7 @@ export class Automation {
     const session = this.sessions.get(id);
     if (!session) return undefined;
     try {
-      const video = await this.server.request(
+      const video = await this.endpoint(id).request(
         `/session/${session}/appium/stop_recording_screen`,
         'POST',
         {},
@@ -346,14 +437,14 @@ export class Automation {
     if (!session || !platform) return { entries: [] };
     try {
       this.check(id, owner);
-      const entries = await this.server.request(`/session/${session}/se/log`, 'POST', {
+      const entries = await this.endpoint(id).request(`/session/${session}/se/log`, 'POST', {
         type: platform === 'ios' ? 'syslog' : 'logcat',
       });
       let pid: number | undefined;
       if (platform === 'ios')
         try {
           // The foreground app's process id lets the syslog be filtered exactly (only if it IS our app).
-          const info = await this.server.request(`/session/${session}/execute/sync`, 'POST', {
+          const info = await this.endpoint(id).request(`/session/${session}/execute/sync`, 'POST', {
             script: 'mobile: activeAppInfo',
             args: [{}],
           });
@@ -369,7 +460,7 @@ export class Automation {
   async screenshot(id: string): Promise<string | undefined> {
     const session = this.sessions.get(id);
     if (!session) return undefined;
-    return `data:image/png;base64,${await this.server.request(`/session/${session}/screenshot`)}`;
+    return `data:image/png;base64,${await this.endpoint(id).request(`/session/${session}/screenshot`)}`;
   }
 
   /* ---------- actions ---------- */
@@ -397,7 +488,7 @@ export class Automation {
             session,
             application,
             request: (route, method, body, timeout, s) =>
-              this.server.request(route, method, body, timeout, s),
+              this.endpoint(id).request(route, method, body, timeout, s),
             // Pointer feedback costs two extra requests per step: only for manual "try" actions, never in runs.
             onPointer: pointer
               ? (x, y, width, height) =>
@@ -440,7 +531,7 @@ export class Automation {
           this.device(id)?.platform === 'ios' ? { bundleId: application } : { appId: application },
         ];
         const run = (script: string) =>
-          this.server.request(route, 'POST', { script, args }, 30000, signal);
+          this.endpoint(id).request(route, 'POST', { script, args }, 30000, signal);
         if (restart) await run('mobile: terminateApp');
         if ((await run('mobile: queryAppState')) !== 4) await run('mobile: activateApp');
       }),
@@ -452,13 +543,16 @@ export class Automation {
       const device = this.device(id);
       if (!device || device.status !== 'ready') throw new Error('Appareil non connecté.');
       const script = (session: string, name: string, args: unknown[] = []) =>
-        this.server.request(`/session/${session}/execute/sync`, 'POST', { script: name, args });
+        this.endpoint(id).request(`/session/${session}/execute/sync`, 'POST', {
+          script: name,
+          args,
+        });
       if (mode === 'current') {
         const session = await this.session(id);
         const app =
           device.platform === 'android'
             ? {
-                bundleId: await this.server.request(
+                bundleId: await this.endpoint(id).request(
                   `/session/${session}/appium/device/current_package`,
                 ),
               }
@@ -472,6 +566,13 @@ export class Automation {
           );
         return [{ id: app.bundleId, name: app.name || app.bundleId }];
       }
+      if (device.remote)
+        throw new Error(
+          tr(
+            'La liste des applications n’est pas disponible sur un appareil distant : saisissez l’identifiant de l’application dans les réglages du projet.',
+            'The application list is not available on a remote device: enter the application id in the project settings.',
+          ),
+        );
       if (device.platform === 'android') {
         const out = (
           await command('adb', [
@@ -539,6 +640,7 @@ export class Automation {
     return this.serial(id, async () => {
       const device = this.device(id);
       if (!device || device.status !== 'ready') throw new Error('Appareil non connecté.');
+      if (device.remote) return { id: application, name: application };
       if (device.platform === 'android')
         return androidApplicationInfo(id.replace(/^android:/, ''), application);
       const apps = (await this.applications(id, 'all').catch(() => [])) as AppInfo[];
@@ -571,6 +673,7 @@ export class Automation {
           !selected.has(id) ||
           device?.platform !== 'ios' ||
           device.kind === 'simulator' ||
+          device.remote ||
           device.status !== 'ready'
         )
           continue;
@@ -584,7 +687,7 @@ export class Automation {
           await this.serial(id, async () => {
             if (this.stopping || busy() || this.sessions.get(id) !== session) return;
             const run = (script: string, args: unknown[] = []) =>
-              this.server.request(
+              this.endpoint(id).request(
                 `/session/${session}/execute/sync`,
                 'POST',
                 { script, args },
@@ -622,11 +725,14 @@ export class Automation {
     await Promise.race([Promise.allSettled([...this.locks.values()]), delay(500)]);
     // Deleting a session lets the driver stop WebDriverAgent itself: give it time before the server goes away.
     await Promise.allSettled(
-      [...this.sessions.values()].map((s) =>
-        this.server.request(`/session/${s}`, 'DELETE', undefined, 8000),
+      [...this.sessions].map(([id, s]) =>
+        this.endpoint(id).request(`/session/${s}`, 'DELETE', undefined, 8000),
       ),
     );
     this.sessions.clear();
+    // Cloud sessions are billed until they are given back.
+    await Promise.allSettled([...this.targets.values()].map((t) => t.close()));
+    this.targets.clear();
     this.server.stop();
     await this.killWda();
   }

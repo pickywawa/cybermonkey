@@ -2,6 +2,7 @@ import { app, dialog, shell } from 'electron';
 import { createContainer, type Container } from './container.js';
 import { WindowManager } from './app/windows.js';
 import { createUpdater } from './app/updates.js';
+import { electronCipher } from './app/cipher.js';
 import { registerHandlers } from './ipc/handlers.js';
 import { McpService } from './mcp/server.js';
 import { Ipc } from './ipc/registry.js';
@@ -40,6 +41,8 @@ app
       userData: paths.userData,
       documents: paths.documents,
       emit,
+      cipher: await electronCipher(),
+      interactive: true,
       openAuthUrl: async (url) => {
         const parsed = new URL(url);
         if (parsed.protocol !== 'https:' || !AUTH_HOSTS.includes(parsed.hostname))
@@ -57,6 +60,7 @@ app
     if (c.settings().devicesDetached) await windows.open('devices');
     if (c.settings().aiDetached) await windows.open('ai');
     c.monitor.start();
+    c.integrations.start();
     await mcp.apply();
     app.on('activate', () => !windows.main() && !windows.quitting && void windows.open('main'));
   })

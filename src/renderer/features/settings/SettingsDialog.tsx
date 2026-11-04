@@ -9,7 +9,9 @@ import { Modal } from '../../shared/ui/overlays';
 import { useActions, useApp } from '../../app/store';
 import type { SettingsTab } from '../../app/ui';
 import { AiSettings } from './AiSettings';
+import { IntegrationsSettings } from './IntegrationsSettings';
 import { McpSettings } from './McpSettings';
+import { RemoteSettings } from './RemoteSettings';
 import { UpdatePanel } from './UpdatePanel';
 
 /** Preview colors (background, sidebar, accent) of each theme: the CSS variables only exist on the root element. */
@@ -65,19 +67,28 @@ export function SettingsDialog({
     >
       <div className="settings-layout">
         <nav className="vtabs" role="tablist" aria-orientation="vertical">
-          {(['general', 'ai', 'creation', 'execution', 'devices', 'mcp', 'updates'] as const).map(
-            (v) => (
-              <button
-                key={v}
-                role="tab"
-                aria-selected={tab === v}
-                className={tab === v ? 'on' : ''}
-                onClick={() => setTab(v)}
-              >
-                {t(`set.tab.${v}` as never)}
-              </button>
-            ),
-          )}
+          {(
+            [
+              'general',
+              'ai',
+              'creation',
+              'execution',
+              'devices',
+              'integrations',
+              'mcp',
+              'updates',
+            ] as const
+          ).map((v) => (
+            <button
+              key={v}
+              role="tab"
+              aria-selected={tab === v}
+              className={tab === v ? 'on' : ''}
+              onClick={() => setTab(v)}
+            >
+              {t(`set.tab.${v}` as never)}
+            </button>
+          ))}
         </nav>
         <div className="stack settings-content">
           {error != null && <ErrorNotice error={error} />}
@@ -383,8 +394,10 @@ export function SettingsDialog({
                   </Button>
                 ))}
               </div>
+              <RemoteSettings draft={draft} set={set} />
             </>
           )}
+          {tab === 'integrations' && <IntegrationsSettings draft={draft} set={set} />}
           {tab === 'mcp' && <McpSettings draft={draft} set={set} />}
           {tab === 'updates' && <UpdatePanel draft={draft} set={set} />}
         </div>

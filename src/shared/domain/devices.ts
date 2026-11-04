@@ -4,12 +4,15 @@ export interface Device {
   id: string;
   name: string;
   platform: OS;
-  kind: 'usb' | 'simulator' | 'network' | 'manual';
+  /** cloud = a profile on a device cloud or on your own Appium server: nothing is plugged in here. */
+  kind: 'usb' | 'simulator' | 'network' | 'manual' | 'cloud';
   status: 'ready' | 'unauthorized' | 'offline';
   detail: string;
   osVersion?: string;
   developerMode?: string;
   ddiReady?: boolean;
+  /** Set for remote profiles: which provider serves it and which profile of Settings it comes from. */
+  remote?: { provider: import('./remote.js').RemoteProvider; profile: string };
 }
 export interface DeviceCheck {
   id: string;

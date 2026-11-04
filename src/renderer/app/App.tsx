@@ -1,4 +1,4 @@
-import { ChevronDown, FileText, Settings2, Smartphone, Sparkles, Variable } from 'lucide-react';
+import { ChevronDown, FileText, Settings2, Smartphone, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { call, appVersion, isDesktop } from '../shared/api';
 import { Button, IconButton, Segmented } from '../shared/ui/controls';
@@ -6,6 +6,7 @@ import { Logo } from '../shared/ui/icons';
 import { Menu } from '../shared/ui/overlays';
 import { CreationPanel } from '../features/creation/CreationPanel';
 import { QuestionDialog } from '../features/creation/QuestionDialog';
+import { IntegrationConfirm } from '../features/settings/IntegrationConfirm';
 import { DevicePanel } from '../features/devices/DevicePanel';
 import { WorkbenchProvider } from '../features/devices/workbench';
 import { ExecutionView } from '../features/execution/ExecutionView';
@@ -16,7 +17,7 @@ import { NodeEditor } from '../features/scenarios/NodeEditor';
 import { ScenarioTree } from '../features/scenarios/ScenarioTree';
 import { StepComposer } from '../features/scenarios/StepComposer';
 import { SettingsDialog } from '../features/settings/SettingsDialog';
-import { EnvironmentPicker, VariablesDialog } from '../features/settings/VariablesDialog';
+import { EnvironmentBar, VariablesDialog } from '../features/settings/VariablesDialog';
 import { findNode, makeNode } from '../../shared/domain/scenario';
 import { AppProvider, useActions, useApp } from './store';
 import { UiContext, type SettingsTab, type Ui } from './ui';
@@ -208,6 +209,7 @@ function Shell() {
               ]}
             />
           )}
+          {project && <EnvironmentBar onManage={() => ui.openVariables()} />}
           <button
             className="ai-chip"
             onClick={() => ui.openSettings('ai')}
@@ -256,11 +258,6 @@ function Shell() {
                     : undefined
                 }
               />
-              <EnvironmentPicker onManage={() => ui.openVariables()} />
-              <button className="side-foot" onClick={() => ui.openVariables()}>
-                <Variable size={14} /> {t('var.title')}{' '}
-                <span className="badge">{Object.keys(project.variables).length}</span>
-              </button>
             </aside>
             <div {...left.props} />
             <main className="center">
@@ -296,6 +293,7 @@ function Shell() {
           <span>{t('status.devices', { n: readyDevices })}</span>
         </div>
         <QuestionDialog />
+        <IntegrationConfirm />
         {dialog?.type === 'settings' && (
           <SettingsDialog initialTab={dialog.tab} onClose={() => setDialog(null)} />
         )}

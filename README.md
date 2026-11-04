@@ -61,6 +61,46 @@ Cybermonkey embeds an **MCP server** with **45 tools** (on by default, local onl
 claude mcp add --transport http cybermonkey http://127.0.0.1:4750/mcp --header "Authorization: Bearer <token>"
 ```
 
+## Command line & CI/CD
+
+Cybermonkey runs a campaign **without a window** and returns an **exit code** your pipeline understands (Jenkins, GitHub Actions, GitLab CI…). The CI builds the app, then asks a **test machine** (a Mac or PC with devices or emulators, set up as a self-hosted agent/runner) to install it and play the campaign: a throwaway CI runner has no phone, so the engine runs where the devices are.
+
+```sh
+/Applications/Cybermonkey.app/Contents/MacOS/Cybermonkey --cli run \
+  --project "Atlas Mobile" --env staging \
+  --android-app app-debug.apk --fresh --out reports
+```
+
+- **Installs the build** (`.apk`, simulator `.app`, iPhone `.ipa`), optionally uninstalling first for a blank start (`--fresh`).
+- **Exit codes** that tell _the app is broken_ (`1`) from _the machine is broken_ (`2`): a missing device or a run that executed nothing is never green. `3` = timeout or interruption.
+- **Reports** in `junit.xml`, `html.html`, `json.json` (or any export format), plus screenshots and videos with `--artifacts`.
+- Same projects, paired devices, environments (`--env`, for the run only) and interruption handling as the app.
+
+Jenkins, GitHub Actions and GitLab examples, every option, and what it does not do yet: [docs/cli.md](docs/cli.md) (French).
+
+## Integrations: Git, notifications, test tools, tickets
+
+_Settings → Integrations._ Everything is optional and off by default. These features react to the app's events (a step fails, a run ends, a scenario is edited) and also work from the [command line](docs/cli.md) in CI/CD.
+
+- **Git** — if the projects folder is a git repository, the tab says so (branch, upstream, changes, ahead/behind) and can offer to **pull** (on start, every N minutes) and to **commit + push** after something is created, edited or run. **Always through a confirmation window** that lists the files and lets you edit the commit message. It never merges, rebases, overwrites or force-pushes: pulls are fast-forward only, and on a conflict or diverged history it tells you and touches nothing.
+- **Slack, Teams, e-mail** — notify on a **regression** (a step that used to pass and now fails; one message per run), on each **failing test** (off by default, capped per run), on **campaign progress** (every 5, 10, 20, 25 or 50 %, each threshold once) and at the **end of a run**. Optionally include the AI analysis, and screenshot and video (**e-mail only**: Slack and Teams webhooks cannot carry files).
+- **TestRail, Azure Test Plans** — send a run's results back to the tool, for scenarios linked to a case by import. Never on by default; _with confirmation_ or _automatic_. Not yet tested against a live instance. Squash TM is not supported (its results API could not be verified).
+- **Jira, GitHub tickets** — create a ticket on a regression, once per set of regressions (no duplicate while the ticket is open). For Jira, fixed extra fields as JSON, and an optional **AI-written ticket**: you describe your custom fields in free text (or paste an example `curl`) and the AI drafts the ticket; Cybermonkey validates it and sends the request itself — the AI never sees your token, and cannot change the project, issue type or reporter.
+- **Secrets** (tokens, webhooks, SMTP password) are stored apart from settings and the project, encrypted by the system when possible; in CI they come from environment variables such as `CYBERMONKEY_JIRA_TOKEN`. Values of secret-looking project variables are masked in every message.
+
+Full guide: [docs/integrations.md](docs/integrations.md) (French).
+
+## Remote devices and device farms
+
+Test on phones **that are not plugged into this machine** (_Settings → Devices_): an Android phone reached **over the network** (`adb connect`, with Android 11+ pairing), a **device cloud** (**BrowserStack**, **Sauce Labs**, **AWS Device Farm**) or **your own Appium server**. Each remote device becomes a device in the Devices panel, usable in runs, AI exploration and recording.
+
+- **Cost under control**: a cloud session only starts during a run, an exploration or a recording, **ends with it**, and a session opened by hand closes after N idle minutes.
+- **Your application** is sent to the provider (button in settings, `--android-app` / `--ios-app` on the command line, or `remote upload` once per pipeline).
+- **In CI**: `--android-device remote:<id>`, `--adb-host`, `remote test|upload|status|adb-connect|adb-pair`. A cloud session that cannot open is an infrastructure error (exit 2), never a test failure. Keys come from environment variables (`BROWSERSTACK_ACCESS_KEY`, `SAUCE_ACCESS_KEY`, `AWS_SECRET_ACCESS_KEY`…).
+- **Not tested on a real account**: checked against simulated servers (and the AWS signature against AWS's published example). No tunnel (BrowserStack Local), no device catalog.
+
+Full guide: [docs/remote-devices.md](docs/remote-devices.md) (French).
+
 ## Download
 
 | System                    | Installer                                                                                         | Notes                                                                                                                                                                                       |

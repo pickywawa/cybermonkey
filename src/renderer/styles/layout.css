@@ -72,9 +72,13 @@
 }
 .title-center {
   flex: 1;
+  min-width: 0;
   text-align: center;
   font-size: 11.5px;
   color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .workspace {
   flex: 1;

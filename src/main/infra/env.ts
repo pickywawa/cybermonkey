@@ -80,14 +80,15 @@ export const commandEnv: NodeJS.ProcessEnv = {
 export function command(
   file: string,
   args: string[],
-  options: { timeout?: number; input?: string } = {},
+  options: { timeout?: number; input?: string; cwd?: string; env?: NodeJS.ProcessEnv } = {},
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const child = execFile(
       file,
       args,
       {
-        env: commandEnv,
+        env: { ...commandEnv, ...options.env },
+        cwd: options.cwd,
         timeout: options.timeout ?? 15000,
         maxBuffer: 24 * 1024 * 1024,
         encoding: 'buffer',

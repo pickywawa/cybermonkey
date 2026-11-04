@@ -219,37 +219,45 @@ export function VariablesDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** Sidebar selector of the project's environment: applies to creation and execution alike. */
-export function EnvironmentPicker({ onManage }: { onManage: () => void }) {
+/**
+ * Title-bar control next to the OS picker, in the same segmented style: the project's environment (applies to
+ * creation and execution alike) and the way into variables and environments. Without any environment only the
+ * variables button shows; environments are created from its dialog.
+ */
+export function EnvironmentBar({ onManage }: { onManage: () => void }) {
   const t = useT();
   const { project } = useApp();
   const actions = useActions();
   if (!project) return null;
   const envs = project.environments ?? [];
-  if (!envs.length)
-    return (
-      <button className="side-foot" onClick={onManage}>
-        <Layers size={14} /> {t('env.add')}
-      </button>
-    );
+  const count = Object.keys(project.variables).length;
   return (
-    <div className="side-foot env-picker" title={t('env.pickerHint')}>
-      <Layers size={14} />
-      <select
-        value={project.activeEnvironmentId ?? ''}
-        onChange={(e) =>
-          void actions.updateProject({ activeEnvironmentId: e.target.value || null })
-        }
-      >
-        <option value="">{t('env.none')}</option>
-        {envs.map((e) => (
-          <option key={e.id} value={e.id}>
-            {e.name}
-          </option>
-        ))}
-      </select>
-      <button className="icon-btn" onClick={onManage} title={t('env.manage')}>
-        <Variable size={13} />
+    <div className="seg env-seg" role="group" aria-label={t('env.label')}>
+      {envs.length > 0 && (
+        <label
+          className={`env-select ${project.activeEnvironmentId ? 'on' : ''}`}
+          title={t('env.pickerHint')}
+        >
+          <Layers size={13} />
+          <select
+            aria-label={t('env.label')}
+            value={project.activeEnvironmentId ?? ''}
+            onChange={(e) =>
+              void actions.updateProject({ activeEnvironmentId: e.target.value || null })
+            }
+          >
+            <option value="">{t('env.none')}</option>
+            {envs.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <button onClick={onManage} title={t('env.manage')}>
+        <Variable size={13} /> <span className="env-label">{t('var.title')}</span>
+        <span className="badge">{count}</span>
       </button>
     </div>
   );
