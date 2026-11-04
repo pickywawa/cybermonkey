@@ -187,6 +187,9 @@ function repos() {
   git(root, 'init', '--bare', '-b', 'main', origin);
   const a = path.join(root, 'a');
   git(root, 'clone', origin, a);
+  // A CI runner has no global identity: give each clone its own, so a commit never depends on the machine.
+  git(a, 'config', 'user.name', 't');
+  git(a, 'config', 'user.email', 't@t');
   mkdirSync(path.join(a, 'Atlas'));
   writeFileSync(path.join(a, 'Atlas', 'cybermonkey.project.json'), '{}');
   git(a, 'add', '-A');
@@ -194,6 +197,8 @@ function repos() {
   git(a, 'push', '-u', 'origin', 'HEAD:main');
   const b = path.join(root, 'b');
   git(root, 'clone', origin, b);
+  git(b, 'config', 'user.name', 't');
+  git(b, 'config', 'user.email', 't@t');
   return { root, a, b, project: path.join(a, 'Atlas') };
 }
 process.env.GIT_AUTHOR_NAME = 't';
