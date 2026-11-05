@@ -382,6 +382,7 @@ export function createMockBridge(): Bridge {
       ],
     }),
     'devices.reconnect': () => {},
+    'devices.warm': () => {},
     'devices.screenshot': (id) =>
       phone(id.startsWith('ios') ? 'ios' : 'android', 'Bonjour Camille'),
     'devices.inspect': (id) => screenOf(id),

@@ -158,6 +158,11 @@ function DeviceCard({
       .catch(() => {});
   }, [frame?.entry.id, project?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The first touch on the mirror would wait for Appium to start: open the session as soon as the phone is on screen.
+  useEffect(() => {
+    if (live && deviceId) void call('devices.warm', deviceId).catch(() => {});
+  }, [live, deviceId]);
+
   const explore = async () => {
     if (!deviceId) return;
     setExploring(true);

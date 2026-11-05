@@ -282,6 +282,19 @@ export class Automation {
       throw error;
     }
   }
+  /**
+   * Open the session of a local device before anyone needs it: the first gesture on the mirror would otherwise wait for
+   * the Appium server and the driver (tens of seconds). Cloud devices are never opened ahead: their time is billed.
+   */
+  async warm(id: string): Promise<void> {
+    const device = this.device(id);
+    if (!device || device.status !== 'ready' || device.remote || this.stopping) return;
+    if (this.sessions.has(id) || this.connecting.has(id)) return;
+    await this.session(id).then(
+      () => undefined,
+      () => undefined, // the failure is kept for the health dialog; a click will surface it
+    );
+  }
   async reconnect(id: string) {
     this.failures.delete(id);
     if (this.targets.has(id)) await this.closeSession(id);

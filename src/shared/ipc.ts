@@ -96,6 +96,8 @@ export interface Contract {
   'devices.scan': [void, DeviceScan];
   'devices.health': [string, DeviceHealth];
   'devices.reconnect': [string, void];
+  /** Open the device session ahead of the first gesture (Appium start + driver install take a while). */
+  'devices.warm': [string, void];
   'devices.screenshot': [string, string];
   'devices.inspect': [string, Screen];
   'devices.perform': [

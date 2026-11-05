@@ -218,6 +218,7 @@ export function registerHandlers(
     return c.devices.scan();
   });
   ipc.handle('devices.health', (id) => c.diagnostics.health(c.devices.known.get(id), id));
+  ipc.handle('devices.warm', (id) => c.automation.warm(id));
   ipc.handle('devices.reconnect', async (id) => {
     try {
       await c.automation.reconnect(id);
