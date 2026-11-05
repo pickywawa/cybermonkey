@@ -1,5 +1,5 @@
 import {
-  ArrowUpRight,
+  ExternalLink,
   Crosshair,
   MoreHorizontal,
   RefreshCw,
@@ -47,7 +47,7 @@ export function DevicePanel({
         </IconButton>
         {!detached && (
           <IconButton label={t('dev.detach')} onClick={() => void call('devices.detach', true)}>
-            <ArrowUpRight size={15} />
+            <ExternalLink size={15} />
           </IconButton>
         )}
       </div>

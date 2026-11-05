@@ -161,7 +161,7 @@ export function CreationPanel({ detached }: { detached?: boolean }) {
         />
         {!detached && (
           <IconButton label={t('ai.detach')} onClick={() => void call('ai.detach', true)}>
-            <ExternalLink size={14} />
+            <ExternalLink size={15} />
           </IconButton>
         )}
       </div>

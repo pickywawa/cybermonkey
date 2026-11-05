@@ -220,13 +220,24 @@ function Shell() {
                   <ExecutionView run={run} />
                 )}
               </main>
-              {!settings.devicesDetached && (
+              {!settings.devicesDetached ? (
                 <>
                   <div {...right.props} />
                   <aside className="right" style={{ width: right.size ?? settings.rightWidth }}>
                     <DevicePanel mode={tab} />
                   </aside>
                 </>
+              ) : (
+                // Phones live in their own window: the AI takes the free column, right of the element's detail.
+                tab === 'creation' &&
+                !settings.aiDetached && (
+                  <>
+                    <div {...right.props} />
+                    <aside className="right" style={{ width: right.size ?? settings.rightWidth }}>
+                      <CreationPanel />
+                    </aside>
+                  </>
+                )
               )}
             </div>
           )}
@@ -319,7 +330,7 @@ function CreationCenter({
       <div className="composer-dock">
         <StepComposer />
       </div>
-      {!settings.aiDetached && (
+      {!settings.aiDetached && !settings.devicesDetached && (
         <>
           <div {...chatSplit} />
           <div style={{ height: chatHeight, flexShrink: 0 }} className="ai-dock">

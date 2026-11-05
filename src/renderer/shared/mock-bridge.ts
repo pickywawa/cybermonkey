@@ -389,7 +389,10 @@ export function createMockBridge(): Bridge {
     'devices.perform': () => null,
     'devices.openWda': () => {},
     'devices.openDoc': () => {},
-    'devices.detach': () => {},
+    'devices.detach': (v) => {
+      Object.assign(settings, { devicesDetached: !!v });
+      setTimeout(() => emit({ type: 'workspace' }), 0);
+    },
     'devices.aiDiagnose': () => 'Aperçu : la vraie IA n’est pas disponible dans le navigateur.',
     'ai.status': (provider) => ({
       provider,
