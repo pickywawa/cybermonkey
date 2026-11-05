@@ -1258,3 +1258,19 @@ input.inline:hover {
     --run-angle: 360deg;
   }
 }
+
+/* What the running element is doing right now, beside its name when the row is folded. */
+.res-row .name {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.run-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 100 auto;
+  min-width: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-style: italic;
+}

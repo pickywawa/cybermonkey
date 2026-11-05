@@ -16,6 +16,7 @@ import type { CampaignDetail } from '../../../shared/domain/report';
 import { pendingRepairs } from '../../../shared/domain/repairs';
 import { stabilityOf } from '../../../shared/domain/stability';
 import { call } from '../../shared/api';
+import { PlatformIcon } from '../../shared/ui/icons';
 import { useT } from '../../shared/i18n';
 import { Badge, Button, IconButton } from '../../shared/ui/controls';
 import { useActions, useApp } from '../../app/store';
@@ -277,9 +278,23 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
                         ) : (
                           <Icon size={13} className={`kind-${row.node.kind}`} />
                         )}
-                        <span className="grow ellipsis" title={row.node.name}>
+                        <span className="name ellipsis" title={row.node.name}>
                           {row.node.name}
                         </span>
+                        {!isOpen &&
+                          row.oses
+                            .filter((os) => row.states[os] === 'running')
+                            .map((os) => {
+                              const e = row.results[os]!.entry;
+                              const text = e.operationMessage ?? e.message;
+                              return text ? (
+                                <span key={os} className="run-text ellipsis" title={text}>
+                                  {row.oses.length > 1 && <PlatformIcon os={os} size={10} plain />}
+                                  {text}
+                                </span>
+                              ) : null;
+                            })}
+                        <span className="grow" />
                         {done.some((e) => e.healing) && (
                           <span title={t('res.healed')}>
                             <Wand2 size={12} color="var(--accent)" />
