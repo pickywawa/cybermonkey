@@ -147,7 +147,12 @@ function demoProject(): Project {
     root.children = f.steps.map(([n]) => n);
     return root;
   });
-  const session = { id: 's1', name: 'Session 1', createdAt: new Date().toISOString() };
+  const session = {
+    id: 's1',
+    name: 'Session 1',
+    createdAt: new Date().toISOString(),
+    tokens: { input: 48200, output: 9100 },
+  };
   return projectSchema.parse({
     id: 'demo',
     name: 'Atlas Mobile',
@@ -257,7 +262,12 @@ export function createMockBridge(): Bridge {
               ? 'Vérification réussie'
               : 'Action effectuée',
           startedAt: new Date(at).toISOString(),
-          finishedAt: new Date(at + 900 + (seq % 4) * 220).toISOString(),
+          finishedAt: new Date(
+            at +
+              (os === 'android' && real.name === 'Ouvrir mes collections'
+                ? 4800
+                : 900 + (seq % 4) * 220),
+          ).toISOString(),
           completedAt: new Date(at + 1000).toISOString(),
           sequence: ++seq,
           screenBefore: ref(os, before),
@@ -276,7 +286,65 @@ export function createMockBridge(): Bridge {
     status: 'failed',
     entries,
     snapshot: project.nodes,
+    accessibility: [
+      {
+        os: 'android',
+        screenId: 'home',
+        screenName: SCREENS.home,
+        nodeName: 'Se connecter à Atlas',
+        at: new Date(t0).toISOString(),
+        issues: [
+          {
+            rule: 'missing-label',
+            severity: 'error',
+            component: 'ImageButton',
+            at: { x: 0.9, y: 0.06 },
+          },
+          {
+            rule: 'small-target',
+            severity: 'warning',
+            component: 'ImageView',
+            label: 'Fermer',
+            size: { width: 32, height: 32 },
+          },
+          {
+            rule: 'technical-label',
+            severity: 'warning',
+            component: 'ImageView',
+            label: 'ic_cart_24',
+          },
+        ],
+      },
+      {
+        os: 'ios',
+        screenId: 'home',
+        screenName: SCREENS.home,
+        at: new Date(t0).toISOString(),
+        issues: [
+          {
+            rule: 'small-target',
+            severity: 'warning',
+            component: 'Button',
+            label: 'Aide',
+            size: { width: 30, height: 30 },
+          },
+        ],
+      },
+      {
+        os: 'android',
+        screenId: 'login',
+        screenName: SCREENS.login,
+        at: new Date(t0).toISOString(),
+        issues: [],
+      },
+    ],
   };
+  const baselines: Record<string, number[]> = {};
+  for (const e of entries)
+    baselines[e.platform + ':' + e.nodeId] = [
+      e.nodeName === 'Ouvrir mes collections' && e.platform === 'android' ? 1150 : 1000,
+      e.nodeName === 'Ouvrir mes collections' && e.platform === 'android' ? 1250 : 1100,
+    ];
   let replay: unknown = null;
   const listeners = new Set<(e: LiveEvent) => void>();
   const emit = (e: LiveEvent) => listeners.forEach((l) => l(e));
@@ -401,6 +469,29 @@ export function createMockBridge(): Bridge {
       message: provider === 'claude' ? 'Claude Code connecté (démo)' : 'Non connecté',
       models: [{ id: 'sonnet', name: 'Sonnet' }],
       account: 'demo@example.com',
+      ...(provider === 'claude'
+        ? {
+            limits: [
+              {
+                id: 'five_hour',
+                label: '5 h',
+                usedPercent: 12,
+                resetsAt: new Date(Date.now() + 3 * 3600_000).toISOString(),
+              },
+              {
+                id: 'seven_day',
+                label: '7 j',
+                usedPercent: 45,
+                resetsAt: new Date(Date.now() + 3 * 86400_000).toISOString(),
+              },
+            ],
+            usage: {
+              today: { input: 41200, output: 9300 },
+              week: { input: 612000, output: 98000 },
+              total: { input: 2410000, output: 380000 },
+            },
+          }
+        : {}),
     }),
     'ai.login': () => {},
     'ai.logout': () => {},
@@ -436,7 +527,7 @@ export function createMockBridge(): Bridge {
     'creation.cancel': () => {},
     'campaigns.list': () => [campaign],
     'campaigns.create': () => campaign,
-    'campaigns.load': () => ({ campaign, reports: [report] }),
+    'campaigns.load': () => ({ campaign, reports: [report], baselines }),
     'campaigns.update': () => campaign,
     'campaigns.clean': () => {},
     'campaigns.export': () => 'export de démonstration',

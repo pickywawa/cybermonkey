@@ -1,6 +1,7 @@
 import path from 'node:path';
 import type { LiveEvent } from '../shared/ipc.js';
 import type { LoginProgress } from '../shared/domain/settings.js';
+import { UsageLedger, ledgerFile } from './infra/ai/usage.js';
 import { AiHub } from './infra/ai/hub.js';
 import { AppiumServer } from './infra/appium/server.js';
 import { Automation } from './infra/appium/automation.js';
@@ -90,10 +91,39 @@ export async function createContainer(options: {
   const diagnostics = new DeviceDiagnostics(automation, server, settings);
   diagnostics.remote = remote;
 
+  const usage = new UsageLedger(ledgerFile(options.userData));
   const hub = new AiHub(
     settings,
     (progress: LoginProgress) => emit({ type: 'login', progress }),
     options.openAuthUrl,
+    usage,
+    // Tokens are kept on the chat session that asked for them, so the sessions list can show what each one cost.
+    (owner, used) => {
+      if (!owner?.sessionId || (!used.input && !used.output)) return;
+      try {
+        const project = store.get(owner.projectId);
+        if (!project.chatSessions.some((s) => s.id === owner.sessionId)) return;
+        void store
+          .update({
+            id: owner.projectId,
+            chatSessions: project.chatSessions.map((s) =>
+              s.id === owner.sessionId
+                ? {
+                    ...s,
+                    tokens: {
+                      input: (s.tokens?.input ?? 0) + used.input,
+                      output: (s.tokens?.output ?? 0) + used.output,
+                    },
+                  }
+                : s,
+            ),
+          })
+          .then(() => emit({ type: 'workspace' }))
+          .catch(() => {});
+      } catch {
+        /* a deleted project never blocks the AI */
+      }
+    },
   );
   const creation = new CreationAgent({ store, devices, automation, hub, settings, live: emit });
   const runner = new Runner({

@@ -1,4 +1,5 @@
 import {
+  Accessibility,
   Download,
   Flag,
   FolderOpen,
@@ -9,7 +10,8 @@ import {
   Plus,
   Square,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { accessibilityOf } from '../../../shared/domain/accessibility';
 import {
   EXPORT_EXTENSIONS,
   EXPORT_FORMATS,
@@ -24,6 +26,7 @@ import { Menu, Modal, useToast } from '../../shared/ui/overlays';
 import { useActions, useApp } from '../../app/store';
 import { useExec } from './focus';
 import { ProgressHeader } from './ProgressHeader';
+import { AccessibilityView } from './AccessibilityView';
 import { ResultsList } from './ResultsList';
 import { ScreensView } from './ScreensView';
 import { useRun } from './useRun';
@@ -38,6 +41,7 @@ export function ExecutionView({ run }: { run: ReturnType<typeof useRun> }) {
   const { project, campaigns, detail, run: current, settings } = useApp();
   const actions = useActions();
   const exec = useExec();
+  const a11y = useMemo(() => accessibilityOf(detail), [detail]);
   const [cleaning, setCleaning] = useState<'one' | 'all' | null>(null);
   const campaign = detail?.campaign;
   if (!project || !settings) return null;
@@ -274,14 +278,32 @@ export function ExecutionView({ run }: { run: ReturnType<typeof useRun> }) {
                     </>
                   ),
                 },
+                {
+                  value: 'a11y',
+                  label: (
+                    <>
+                      <Accessibility size={13} /> {t('camp.tab.a11y')}
+                      {a11y.errors + a11y.warnings > 0 && (
+                        <span
+                          className={`badge ${a11y.errors ? 'err' : 'warn'}`}
+                          style={{ marginLeft: 6 }}
+                        >
+                          {a11y.errors + a11y.warnings}
+                        </span>
+                      )}
+                    </>
+                  ),
+                },
               ]}
             />
           </div>
           <div className="scroll grow exec-body">
             {exec.view === 'results' ? (
               <ResultsList detail={detail} />
-            ) : (
+            ) : exec.view === 'map' ? (
               <ScreensView detail={detail} />
+            ) : (
+              <AccessibilityView detail={detail} />
             )}
             {current?.persistenceError && (
               <div className="notice err">{current.persistenceError}</div>

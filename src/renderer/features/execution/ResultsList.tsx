@@ -5,6 +5,7 @@ import {
   ChevronsUpDown,
   Compass,
   Loader2,
+  Timer,
   MousePointerClick,
   Search,
   ShieldCheck,
@@ -16,7 +17,7 @@ import type { CampaignDetail } from '../../../shared/domain/report';
 import { pendingRepairs } from '../../../shared/domain/repairs';
 import { stabilityOf } from '../../../shared/domain/stability';
 import { call } from '../../shared/api';
-import { PlatformIcon } from '../../shared/ui/icons';
+import { PlatformIcon, osName } from '../../shared/ui/icons';
 import { useT } from '../../shared/i18n';
 import { Badge, Button, IconButton } from '../../shared/ui/controls';
 import { useActions, useApp } from '../../app/store';
@@ -26,18 +27,22 @@ import { OsMark } from './OsMark';
 import { ResultDetail } from './ResultDetail';
 
 const KIND_ICON = { navigation: Compass, action: MousePointerClick, test: ShieldCheck } as const;
-const FILTERS = ['passed', 'failed', 'pending', 'other', 'flaky', 'healed'] as const;
+const FILTERS = ['passed', 'failed', 'pending', 'other', 'flaky', 'healed', 'slow'] as const;
 type Filter = (typeof FILTERS)[number];
 
+const seconds = (ms: number) =>
+  (ms / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' s';
 const entriesOf = (row: ResultRow) => Object.values(row.results).map((r) => r!.entry);
 const matches = (row: ResultRow, f: Filter): boolean =>
-  f === 'flaky'
-    ? entriesOf(row).some((e) => e.flaky)
-    : f === 'healed'
-      ? entriesOf(row).some((e) => e.healing)
-      : f === 'pending'
-        ? row.status === 'pending' || row.status === 'running'
-        : row.status === f;
+  f === 'slow'
+    ? Object.keys(row.slow).length > 0
+    : f === 'flaky'
+      ? entriesOf(row).some((e) => e.flaky)
+      : f === 'healed'
+        ? entriesOf(row).some((e) => e.healing)
+        : f === 'pending'
+          ? row.status === 'pending' || row.status === 'running'
+          : row.status === f;
 
 /** The result a click on this row shows on the device panel: the failure if there is one, else the first one. */
 const pickResult = (row: ResultRow) =>
@@ -234,6 +239,17 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
                 {folded ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
                 <b className="ellipsis grow">{sc.scenario.name}</b>
                 {sc.module && <span className="module-tag">{sc.module}</span>}
+                {sc.slow && (
+                  <span
+                    className="slow-tag"
+                    title={t('slow.scenarioHint', {
+                      now: seconds(sc.slow.ms),
+                      usual: seconds(sc.slow.baselineMs),
+                    })}
+                  >
+                    <Timer size={11} /> {t('slow.tag', { x: sc.slow.ratio })}
+                  </span>
+                )}
                 <span className={`group-count ${sc.status}`}>
                   {sc.totals.passed}/{sc.totals.total}
                   {sc.totals.failed > 0 && <em> · {sc.totals.failed} ✗</em>}
@@ -246,7 +262,7 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
                   previousScreen = row.screen?.id;
                   const isOpen = open.has(row.node.id);
                   const done = Object.values(row.results).map((r) => r!.entry);
-                  const seconds = done
+                  const secs = done
                     .filter((e) => e.finishedAt)
                     .reduce(
                       (n, e) => n + (Date.parse(e.finishedAt!) - Date.parse(e.startedAt)) / 1000,
@@ -258,7 +274,7 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
                         {project.platforms.map((os) => (
                           <i
                             key={os}
-                            className={row.oses.includes(os) ? (row.states[os] ?? '') : 'na'}
+                            className={`${row.oses.includes(os) ? (row.states[os] ?? '') : 'na'}${row.slow[os] ? ' slow' : ''}`}
                           />
                         ))}
                       </div>
@@ -269,7 +285,7 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
                       )}
                       <div
                         id={'res-' + row.node.id}
-                        className={`res-row st-${row.status} ${project.selectedNodeId === row.node.id ? 'sel' : ''} ${pulse === row.node.id ? 'pulse' : ''}`}
+                        className={`res-row st-${row.status} ${Object.keys(row.slow).length ? 'is-slow' : ''} ${project.selectedNodeId === row.node.id ? 'sel' : ''} ${pulse === row.node.id ? 'pulse' : ''}`}
                         style={{ paddingLeft: 12 + row.depth * 14 }}
                         onClick={() => choose(row)}
                       >
@@ -295,6 +311,22 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
                               ) : null;
                             })}
                         <span className="grow" />
+                        {Object.values(row.slow).length > 0 && (
+                          <span
+                            title={Object.entries(row.slow)
+                              .map(([os, v]) =>
+                                t('slow.detail', {
+                                  os: osName(os as never),
+                                  now: seconds(v.ms),
+                                  usual: seconds(v.baselineMs),
+                                  x: v.ratio,
+                                }),
+                              )
+                              .join('\n')}
+                          >
+                            <Timer size={12} color="var(--warn)" />
+                          </span>
+                        )}
                         {done.some((e) => e.healing) && (
                           <span title={t('res.healed')}>
                             <Wand2 size={12} color="var(--accent)" />
@@ -307,11 +339,14 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
                               key={os}
                               os={os}
                               state={row.states[os]!}
+                              slow={!!row.slow[os]}
                               language={settings?.language}
                             />
                           ))}
                         </span>
-                        <span className="note dur">{seconds ? seconds.toFixed(1) + ' s' : ''}</span>
+                        <span className={`note dur ${Object.keys(row.slow).length ? 'slow' : ''}`}>
+                          {secs ? secs.toFixed(1) + ' s' : ''}
+                        </span>
                         {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </div>
                       {isOpen && (

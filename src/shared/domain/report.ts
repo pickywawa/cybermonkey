@@ -76,6 +76,30 @@ export interface RunEntry {
   /** Set when the scenario is played once per dataset row: which row this entry belongs to. */
   iteration?: { index: number; total: number; label: string };
 }
+/** One accessibility problem found on a screen, in the words a tester understands. */
+export interface AccessibilityIssue {
+  rule: 'missing-label' | 'small-target' | 'technical-label';
+  severity: 'error' | 'warning';
+  /** Kind of component (« Button », « ImageView »…), without the platform prefix. */
+  component: string;
+  /** What the screen reader would say, when it says anything. */
+  label?: string;
+  /** Size in points (iOS) or in estimated dp (Android), for target-size problems. */
+  size?: { width: number; height: number };
+  /** Where it is on the screen, as fractions 0..1 (to find it on a capture). */
+  at?: { x: number; y: number };
+}
+/** A screen that was looked at during a run, with what its accessibility audit found. */
+export interface AuditedScreen {
+  os: OS;
+  screenId: string;
+  screenName: string;
+  /** The step during which the screen was inspected. */
+  nodeId?: string;
+  nodeName?: string;
+  at: string;
+  issues: AccessibilityIssue[];
+}
 export interface RunReport {
   id: string;
   projectId: string;
@@ -89,6 +113,8 @@ export interface RunReport {
   entries: RunEntry[];
   snapshot: ScenarioNode[];
   persistenceError?: string;
+  /** Screens audited for accessibility while the run played (a screen is audited once per run and OS). */
+  accessibility?: AuditedScreen[];
 }
 export const campaignSchema = z.object({
   id: z.string().uuid(),
@@ -102,6 +128,8 @@ export type Campaign = z.infer<typeof campaignSchema>;
 export interface CampaignDetail {
   campaign: Campaign;
   reports: RunReport[];
+  /** How long each step took in earlier campaigns (ms, passed steps only), by « os:nodeId »: the yardstick for slowness. */
+  baselines?: Record<string, number[]>;
 }
 export interface ReplayFrame {
   runId: string;

@@ -6,6 +6,7 @@ import {
   screenInventory,
   stateOf,
 } from '../src/shared/domain/campaign.js';
+import { baselinesFrom, durationOf, slownessOf } from '../src/shared/domain/performance.js';
 import type { CampaignDetail, RunEntry, RunReport } from '../src/shared/domain/report.js';
 import { makeNode, type ScenarioNode } from '../src/shared/domain/scenario.js';
 
@@ -331,4 +332,83 @@ test('results: the overall rate counts element × OS pairs — 2 of 4 passing on
   assert.equal(res.totals.passed, 2);
   assert.equal(res.totals.failed, 0);
   assert.equal(res.totals.rate, 25);
+});
+
+/* ---------- slowness ---------- */
+
+const timed = (
+  n: ScenarioNode,
+  os: 'android' | 'ios',
+  ms: number,
+  status: RunEntry['status'] = 'passed',
+) =>
+  entry(n, os, status, {
+    startedAt: '2026-02-01T00:00:00Z',
+    finishedAt: new Date(Date.parse('2026-02-01T00:00:00Z') + ms).toISOString(),
+  });
+
+test('slowness: only a clear slowdown counts — ×1.5 and at least a second more than usual', () => {
+  assert.ok(slownessOf(4200, [1300, 1200]), '4.2 s against ~1.25 s is slow');
+  assert.equal(slownessOf(1800, [1300, 1200]), undefined, '×1.4: within the noise');
+  assert.equal(slownessOf(700, [200, 250]), undefined, '×3 but only half a second: not news');
+  assert.equal(slownessOf(4200, []), undefined, 'no yardstick yet: nothing to compare');
+  assert.equal(slownessOf(undefined, [1000]), undefined);
+});
+
+test('slowness: the step time ignores the evidence-gathering time when it is known', () => {
+  assert.equal(durationOf(timed(login, 'android', 3000)), 3000);
+  assert.equal(durationOf({ ...timed(login, 'android', 3000), performMs: 800 }), 800);
+});
+
+test('slowness: results flag a passed step slower than earlier campaigns, and its scenario', () => {
+  const earlier = [
+    detail(
+      report('old1', '2026-01-01', [
+        timed(loginOk, 'android', 1000),
+        timed(typeUser, 'android', 1000),
+      ]),
+    ),
+    detail(
+      report('old2', '2026-01-05', [
+        timed(loginOk, 'android', 1200),
+        timed(typeUser, 'android', 1100),
+      ]),
+    ),
+  ];
+  const current = detail(
+    report('now', '2026-02-01', [
+      timed(loginOk, 'android', 5200), // much slower
+      timed(typeUser, 'android', 1150), // as usual
+      timed(home, 'android', 90000), // never seen before: no yardstick, never slow
+    ]),
+  );
+  current.baselines = baselinesFrom(earlier);
+  const res = buildResults(project, current);
+  const rows = res.scenarios[0].rows;
+  const row = (n: ScenarioNode) => rows.find((r) => r.node.id === n.id)!;
+  assert.ok(row(loginOk).slow.android, 'slower');
+  assert.ok(row(loginOk).slow.android!.ratio > 4);
+  assert.deepEqual(row(typeUser).slow, {});
+  assert.deepEqual(row(home).slow, {}, 'no history, no verdict');
+  assert.ok(res.scenarios[0].slow, 'the scenario as a whole is slower');
+  assert.equal(res.slowCount, 1);
+});
+
+test('slowness: a failed step is never « slow », and earlier runs of the same campaign are a yardstick too', () => {
+  const current = detail(
+    report('a', '2026-02-01', [timed(loginOk, 'android', 1000)]),
+    report('b', '2026-02-02', [timed(loginOk, 'android', 6000)]),
+  );
+  assert.ok(
+    buildResults(project, current).scenarios[0].rows.find((r) => r.node.id === loginOk.id)!.slow
+      .android,
+  );
+  const failed = detail(
+    report('a', '2026-02-01', [timed(loginOk, 'android', 1000)]),
+    report('b', '2026-02-02', [timed(loginOk, 'android', 6000, 'failed')]),
+  );
+  assert.deepEqual(
+    buildResults(project, failed).scenarios[0].rows.find((r) => r.node.id === loginOk.id)!.slow,
+    {},
+  );
 });

@@ -2,6 +2,7 @@ import { DOMParser } from '@xmldom/xmldom';
 import { createHash } from 'node:crypto';
 import type { Component, Screen } from '../../../shared/domain/devices.js';
 import type { Locator } from '../../../shared/domain/scenario.js';
+import { auditAccessibility } from './accessibility.js';
 import { IOS_ANONYMOUS_INPUT_SELECTOR } from './ios-config.js';
 
 export function xpathLiteral(value: string): string {
@@ -127,9 +128,13 @@ export function parseScreen(xml: string, deviceId: string): Screen {
     }
   };
   if (doc.documentElement) walk(doc.documentElement as unknown as Element);
+  const a11y = doc.documentElement
+    ? auditAccessibility(doc as unknown as Document, os, width, height)
+    : [];
   return {
     deviceId,
     components,
+    ...(a11y.length ? { a11y } : {}),
     width,
     height,
     capturedAt: new Date().toISOString(),

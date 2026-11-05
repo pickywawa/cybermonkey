@@ -22,15 +22,20 @@ export function OsMark({
   state,
   size = 12,
   language = 'fr',
+  slow,
 }: {
   os: OS;
   state: MarkState;
   size?: number;
   language?: 'fr' | 'en';
+  /** Passed, but slower than usual: the dot turns orange. */
+  slow?: boolean;
 }) {
-  const word = LABEL[state][language === 'en' ? 1 : 0];
+  const word =
+    LABEL[state][language === 'en' ? 1 : 0] +
+    (slow ? (language === 'en' ? ' · slower than usual' : ' · plus lent que d’habitude') : '');
   return (
-    <span className={`os-mark ${state}`} title={`${osName(os)} : ${word}`}>
+    <span className={`os-mark ${state}${slow ? ' slow' : ''}`} title={`${osName(os)} : ${word}`}>
       <PlatformIcon os={os} size={size} plain />
       <i />
     </span>

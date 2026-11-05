@@ -32,6 +32,62 @@ export class ClaudeProvider implements AiProvider {
   private login_ = new CliLogin();
   lastUsage?: { input: number; output: number };
 
+  private limitsCache?: { at: number; value: NonNullable<ProviderStatus['limits']> };
+  /**
+   * The plan's usage windows (5 hours, 7 days…) as Claude Code's own /usage reports them. Answered by the CLI without
+   * sending any prompt; absent for API-key accounts. Cached a minute: it is asked every time the panel opens.
+   */
+  async limits(): Promise<NonNullable<ProviderStatus['limits']>> {
+    if (this.limitsCache && Date.now() - this.limitsCache.at < 60_000)
+      return this.limitsCache.value;
+    const probe = query({
+      prompt: (async function* (): AsyncGenerator<SDKUserMessage> {
+        await new Promise<never>(() => {});
+      })(),
+      options: {
+        tools: [],
+        settingSources: [],
+        pathToClaudeCodeExecutable: claudeBinary(),
+        env: commandEnv as Record<string, string | undefined>,
+      },
+    });
+    const value: NonNullable<ProviderStatus['limits']> = [];
+    try {
+      const usage = await Promise.race([
+        probe.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Claude Code usage timeout')), 15000),
+        ),
+      ]);
+      const windows = [
+        ['five_hour', '5 h'],
+        ['seven_day', '7 j'],
+        ['seven_day_opus', 'Opus 7 j'],
+        ['seven_day_sonnet', 'Sonnet 7 j'],
+      ] as const;
+      for (const [id, label] of windows) {
+        const w = usage.rate_limits?.[id];
+        if (w && typeof w.utilization === 'number')
+          value.push({
+            id,
+            label,
+            usedPercent: Math.max(0, Math.min(100, w.utilization)),
+            ...(w.resets_at ? { resetsAt: w.resets_at } : {}),
+          });
+      }
+    } catch {
+      /* limits are optional: unavailable never means « nothing used » */
+    } finally {
+      try {
+        probe.close();
+      } catch {
+        /* already stopped */
+      }
+    }
+    this.limitsCache = { at: Date.now(), value };
+    return value;
+  }
+
   async status(): Promise<ProviderStatus> {
     const binary = claudeBinary();
     try {

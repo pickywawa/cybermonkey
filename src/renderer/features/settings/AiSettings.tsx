@@ -1,3 +1,4 @@
+import { UsageMeter } from '../creation/UsageMeter';
 import { CircleCheck, CircleX, LogIn, LogOut, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
@@ -92,11 +93,7 @@ export function AiSettings({
               </p>
             )}
             {info?.help && !info.authenticated && <div className="notice warn">{info.help}</div>}
-            {info?.quota && (
-              <div className="note">
-                {info.quota.label} · {t('set.ai.quota', { n: Math.round(info.quota.usedPercent) })}
-              </div>
-            )}
+            <UsageMeter status={info} />
             {info?.lastUsage && (
               <div className="note">
                 {t('set.ai.usage', {

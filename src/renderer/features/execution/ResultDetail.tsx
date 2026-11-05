@@ -1,4 +1,13 @@
-import { Check, Film, ImageIcon, ShieldAlert, Sparkles, TriangleAlert, Wand2 } from 'lucide-react';
+import {
+  Check,
+  Film,
+  Timer,
+  ImageIcon,
+  ShieldAlert,
+  Sparkles,
+  TriangleAlert,
+  Wand2,
+} from 'lucide-react';
 import { useState } from 'react';
 import type { ResultRow } from '../../../shared/domain/campaign';
 import type { RunEntry } from '../../../shared/domain/report';
@@ -48,6 +57,17 @@ export function ResultDetail({
                   )}
                   <span className="note">{timing(r.entry, settings?.language, t)}</span>
                   <StabilityChip s={stability.get(os + ':' + row.node.id)} />
+                  {row.slow[os] && (
+                    <Badge tone="warn">
+                      <Timer size={11} />{' '}
+                      {t('slow.detail', {
+                        os: osName(os),
+                        now: (row.slow[os]!.ms / 1000).toFixed(1) + ' s',
+                        usual: (row.slow[os]!.baselineMs / 1000).toFixed(1) + ' s',
+                        x: row.slow[os]!.ratio,
+                      })}
+                    </Badge>
+                  )}
                 </>
               ) : (
                 <span className="note">{t('exec.notRunOs', { os: osName(os) })}</span>

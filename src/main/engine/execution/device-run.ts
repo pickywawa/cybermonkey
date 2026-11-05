@@ -75,6 +75,31 @@ export class DeviceRun {
   private heals = 0;
   constructor(private d: DeviceRunDeps) {
     this.os = d.ctx.platform;
+    // Every inspection the run makes anyway is also an accessibility audit of that screen.
+    const inspect = d.ctx.inspect.bind(d.ctx);
+    d.ctx.inspect = async () => {
+      const screen = await inspect();
+      this.audit(screen);
+      return screen;
+    };
+  }
+  private audited = new Set<string>();
+  private audit(screen: Screen) {
+    if (!this.d.settings().accessibilityAudit) return;
+    const ref = identifyScreen(screen, this.os, this.d.allNodes);
+    if (this.audited.has(ref.id)) return;
+    this.audited.add(ref.id);
+    const step = [...this.report.entries]
+      .reverse()
+      .find((e) => e.platform === this.os && !e.interruption);
+    (this.report.accessibility ??= []).push({
+      os: this.os,
+      screenId: ref.id,
+      screenName: ref.name,
+      ...(step ? { nodeId: step.nodeId, nodeName: step.nodeName } : {}),
+      at: new Date().toISOString(),
+      issues: screen.a11y ?? [],
+    });
   }
 
   async run(roots: ScenarioNode[]) {
@@ -312,6 +337,15 @@ export class DeviceRun {
       if (failed) this.d.analyzer.failureScreens.set(entry.id, screen);
     }
     entry.screenAfter = this.current ?? (await this.observe());
+    // A screen reached by a navigation is audited once, even when the run never needed to inspect it.
+    if (
+      known &&
+      entry.kind === 'navigation' &&
+      outcome === 'passed' &&
+      this.d.settings().accessibilityAudit &&
+      !this.audited.has(known.id)
+    )
+      await this.d.ctx.inspect().catch(() => undefined);
     if (wantShot) {
       try {
         if (!image || !image.startsWith('data:image'))

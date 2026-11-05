@@ -12,6 +12,13 @@ import { ClaudeProvider } from './claude.js';
 import { CodexProvider } from './codex.js';
 import { CopilotProvider } from './copilot.js';
 import type { AiProvider, Conversation, SendOptions } from './provider.js';
+import type { UsageLedger } from './usage.js';
+
+/** Who a conversation's tokens belong to: a project's chat session, or nobody in particular. */
+export interface UsageOwner {
+  projectId: string;
+  sessionId?: string | null;
+}
 
 const TRANSIENT = new Set(['ai-timeout', 'network']);
 
@@ -28,13 +35,35 @@ export class AiHub {
     private settings: () => Settings,
     private onLogin: (progress: LoginProgress) => void,
     private openUrl: (url: string) => Promise<void>,
+    private ledger?: UsageLedger,
+    /** Called after every AI turn with the tokens it used and who asked. */
+    private onTokens?: (
+      owner: UsageOwner | undefined,
+      usage: { input: number; output: number },
+    ) => void,
   ) {}
 
   get current() {
     return this.providers[this.settings().provider];
   }
-  status(provider: Provider): Promise<ProviderStatus> {
-    return this.providers[provider].status();
+  async status(provider: Provider): Promise<ProviderStatus> {
+    const status = await this.providers[provider].status();
+    const [limits, usage] = await Promise.all([
+      status.authenticated ? this.providers[provider].limits?.().catch(() => undefined) : undefined,
+      this.ledger?.totals().catch(() => undefined),
+    ]);
+    return {
+      ...status,
+      ...(limits?.length ? { limits } : {}),
+      ...(status.quota && !limits?.length
+        ? {
+            limits: [
+              { id: 'quota', label: status.quota.label, usedPercent: status.quota.usedPercent },
+            ],
+          }
+        : {}),
+      ...(usage ? { usage } : {}),
+    };
   }
   async isReady() {
     return (await this.current.status().catch(() => null))?.authenticated === true;
@@ -60,7 +89,7 @@ export class AiHub {
     system: string,
     signal: AbortSignal,
     run: (conversation: Conversation) => Promise<T>,
-    options: { fast?: boolean } = {},
+    options: { fast?: boolean; owner?: UsageOwner } = {},
   ): Promise<T> {
     const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'cybermonkey-ai-'));
     const controller = new AbortController();
@@ -76,6 +105,10 @@ export class AiHub {
         signal: controller.signal,
         settings: this.settings(),
         fast: options.fast,
+        onUsage: (usage) => {
+          void this.ledger?.add(usage);
+          this.onTokens?.(options.owner, usage);
+        },
       });
       conversation = inner;
       const resilient: Conversation = {

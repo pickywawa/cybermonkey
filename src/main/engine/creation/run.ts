@@ -306,7 +306,10 @@ export class CreationRun {
         CREATION_SYSTEM,
         this.signal,
         (conversation) => this.loop(conversation, path),
-        { fast: this.settings.creationFastMode },
+        {
+          fast: this.settings.creationFastMode,
+          owner: { projectId: this.input.projectId, sessionId: this.chatSessionId },
+        },
       );
     } catch (error) {
       await this.trace.record({

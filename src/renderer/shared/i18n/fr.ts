@@ -356,6 +356,11 @@ export const fr = {
   'ai.import': 'Importer',
   'ai.newSession': 'Nouvelle session',
   'ai.sessions': 'Sessions de conversation',
+  'ai.sessionTokens': '{tokens} jetons',
+  'ai.usage.left': '{n} % restant',
+  'ai.usage.reset': 'Se renouvelle {at}',
+  'ai.usage.tokens':
+    'Jetons envoyés par Cybermonkey : {today} aujourd’hui · {week} sur 7 jours · {total} au total',
   'ai.sessionMeta': '{n} message(s) · {date}',
   'ai.send': 'Envoyer',
   'q.title': 'Question de l’IA',
@@ -489,6 +494,28 @@ export const fr = {
   'camp.startNew': 'Lancer une nouvelle campagne de test',
   'camp.missingDevices': 'Aucun appareil prêt pour :',
   'camp.tab.results': 'Résultats',
+  'camp.tab.a11y': 'Accessibilité',
+  'a11y.none': 'Aucun écran audité pour l’instant',
+  'a11y.noneHint':
+    'Les écrans traversés pendant une exécution sont contrôlés : lancez la campagne pour voir les problèmes d’accessibilité.',
+  'a11y.off': 'L’audit d’accessibilité est désactivé dans les réglages (Exécution).',
+  'a11y.errors': '{n} erreur(s)',
+  'a11y.warnings': '{n} avertissement(s)',
+  'a11y.screens': '{n} écran(s) audité(s), {clean} sans problème',
+  'a11y.f.error': 'Avec erreurs',
+  'a11y.f.warning': 'Avec avertissements',
+  'a11y.f.clean': 'Sans problème',
+  'a11y.scope':
+    'Contrôle sur l’arbre d’accessibilité : noms manquants, noms techniques, cibles trop petites. Le contraste des couleurs, la taille du texte et l’ordre de lecture ne sont pas vérifiés.',
+  'a11y.clean': 'Aucun problème',
+  'a11y.during': 'vu pendant « {step} »',
+  'a11y.showStep': 'Voir l’étape',
+  'a11y.rule.missing-label':
+    'Aucun nom pour un lecteur d’écran : une personne aveugle ne sait pas à quoi sert ce bouton.',
+  'a11y.rule.technical-label':
+    'Le nom lu à voix haute est un identifiant technique, pas un texte compréhensible.',
+  'a11y.rule.small-target':
+    'Zone tactile trop petite (minimum recommandé : 44 pt sur iOS, 48 dp sur Android).',
   'camp.tab.map': 'Cartographie',
   'camp.export': 'Exporter',
   'camp.runAll': 'Tout exécuter',
@@ -627,6 +654,10 @@ export const fr = {
     'Seulement quand le pas n’a rien pu faire (jamais après une saisie ou un geste en cours). S’il passe au 2e essai, il est marqué « instable » au lieu d’être masqué. Le 2e essai est court (4 s max).',
   'res.video': 'Voir la vidéo',
   'res.videoHint': 'Enregistrement du scénario, le pas commence vers {s} s',
+  'set.ex.a11y': 'Accessibilité',
+  'set.ex.a11yHint':
+    'Contrôle l’arbre d’accessibilité des écrans traversés (noms manquants, cibles trop petites). Il lit des informations déjà récupérées ; chaque nouvel écran atteint par une navigation coûte une inspection.',
+  'set.ex.a11yOn': 'Auditer l’accessibilité pendant les exécutions',
   'set.ex.video': 'Vidéo des scénarios en échec',
   'set.ex.videoHint':
     'Chaque scénario est filmé, la vidéo n’est gardée que s’il échoue (pour voir ce qui s’est passé). Indisponible sur un iPhone réel sans ffmpeg ; sans effet sur le résultat.',
@@ -895,6 +926,13 @@ export const fr = {
   'exec.osHint': 'Taux de réussite sur {os} : éléments réussis parmi ceux qui s’appliquent à {os}.',
   'exec.filters': 'Filtres',
   'exec.filters.reset': 'Tout afficher',
+  'exec.f.slow': 'Plus lents',
+  'slow.tag': '×{x} plus long',
+  'slow.count': '{n} plus lent(s)',
+  'slow.hint':
+    'Réussis, mais nettement plus longs que lors des campagnes ou exécutions précédentes.',
+  'slow.detail': '{os} : {now} au lieu de {usual} d’habitude (×{x})',
+  'slow.scenarioHint': 'Le scénario prend {now} au lieu de {usual} d’habitude.',
   'exec.f.passed': 'Réussis',
   'exec.f.failed': 'En échec',
   'exec.f.pending': 'À tester',

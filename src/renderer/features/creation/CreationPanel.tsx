@@ -25,6 +25,7 @@ import { useUi } from '../../app/ui';
 import { useWorkbench } from '../devices/workbench';
 import { ImportDialog } from './ImportDialog';
 import { ProposalReview } from './ProposalReview';
+import { UsageMeter, formatTokens } from './UsageMeter';
 import { RecorderPanel } from './RecorderPanel';
 
 /** AI-assisted creation: describe a journey, import cases, or record on the phone; review before anything is saved. */
@@ -273,7 +274,10 @@ export function CreationPanel({ detached }: { detached?: boolean }) {
                     size="sm"
                     variant="ghost"
                     icon={<MessagesSquare size={13} />}
-                    onClick={toggle}
+                    onClick={() => {
+                      toggle();
+                      void actions.refreshProvider();
+                    }}
                     title={t('ai.sessions')}
                   >
                     <span className="ellipsis" style={{ maxWidth: 130 }}>
@@ -302,6 +306,14 @@ export function CreationPanel({ detached }: { detached?: boolean }) {
                         >
                           <b className="ellipsis">{x.name}</b>
                           <span className="note">
+                            {x.tokens && x.tokens.input + x.tokens.output > 0
+                              ? t('ai.sessionTokens', {
+                                  tokens: formatTokens(
+                                    x.tokens.input + x.tokens.output,
+                                    settings.language,
+                                  ),
+                                }) + ' · '
+                              : ''}
                             {t('ai.sessionMeta', {
                               n: count,
                               date: new Date(last ?? x.createdAt).toLocaleString(
@@ -317,6 +329,7 @@ export function CreationPanel({ detached }: { detached?: boolean }) {
                       );
                     })}
                     <hr />
+                    <UsageMeter status={provider} />
                     <button
                       onClick={() => {
                         close();

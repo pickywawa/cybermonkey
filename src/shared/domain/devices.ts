@@ -1,3 +1,4 @@
+import type { AccessibilityIssue } from './report.js';
 import type { Locator, OS } from './scenario.js';
 
 export interface Device {
@@ -60,6 +61,8 @@ export interface Screen {
   /** Regions (web views…) drawn on screen but whose content is not in the accessibility tree. */
   opaque?: OpaqueRegion[];
   components: Component[];
+  /** Accessibility problems seen in the page source (computed with it, nothing extra is asked of the device). */
+  a11y?: AccessibilityIssue[];
   width: number;
   height: number;
   capturedAt: string;

@@ -60,6 +60,8 @@ export const chatSessionSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1).max(100),
   createdAt: z.string(),
+  /** Tokens the AI used for this conversation (summed over every turn). */
+  tokens: z.object({ input: z.number().default(0), output: z.number().default(0) }).optional(),
 });
 export type ChatSession = z.infer<typeof chatSessionSchema>;
 export const messageSchema = z.object({

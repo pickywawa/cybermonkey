@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { buildResults, latestResults, type CampaignResults } from '../../../shared/domain/campaign';
 import { useApp } from '../../app/store';
 
-export type ExecView = 'results' | 'map';
+export type ExecView = 'results' | 'map' | 'a11y';
 type Origin = 'tree' | 'results' | 'map';
 interface Focus {
   nodeId: string | null;

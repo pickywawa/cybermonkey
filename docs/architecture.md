@@ -55,6 +55,12 @@ Les navigations décrivent leur **écran de destination** par des repères (comm
 - Dernier recours : un **brouillon reconstruit depuis les actions réellement exécutées** (jamais rien d’inventé).
 - Le rejeu sur appareil et la synthèse (qualité, couverture par OS, avertissements, sélection étape par étape) précèdent toute écriture.
 
+## Jetons, accessibilité, lenteur
+
+- **Jetons** : `AiHub.converse` reçoit un propriétaire (`projectId`, session de chat) ; chaque tour appelle `onUsage` → `UsageLedger` (`ai-usage.json`, par jour) et le cumul de la session (`ChatSession.tokens`). Les fenêtres du forfait viennent de `AiProvider.limits()` (Claude : requête `/usage` du SDK sans prompt, mise en cache 60 s ; Copilot : quota premium).
+- **Accessibilité** : `parseScreen` joint `Screen.a11y` (`infra/appium/accessibility.ts`, règles sur l'arbre déjà téléchargé) ; `DeviceRun` enregistre un `AuditedScreen` par écran et par exécution (`RunReport.accessibility`) ; `accessibilityOf` garde le dernier audit de chaque écran.
+- **Lenteur** : `shared/domain/performance.ts` (médiane des durées passées, seuil ×1,5 et +1 s). `Runner.loadCampaign` joint `CampaignDetail.baselines` (5 campagnes précédentes) ; `buildResults` marque `ResultRow.slow` et `ScenarioResults.slow`.
+
 ## Exécution par IA
 
 - **Réparation de sélecteur** : si le composant d’une action/navigation a disparu, l’IA propose l’équivalent sur l’écran courant ; jamais sur une vérification. Chaque réparation est tracée et applicable au scénario en un clic.

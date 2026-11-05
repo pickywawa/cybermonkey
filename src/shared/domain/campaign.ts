@@ -7,6 +7,14 @@ import {
 } from './scenario.js';
 import type { CampaignDetail, ReplayFrame, RunEntry, RunStatus } from './report.js';
 import type { Project } from './project.js';
+import {
+  SLOW_MIN_EXTRA_SCENARIO_MS,
+  durationHistory,
+  durationOf,
+  median,
+  slownessOf,
+  type Slowness,
+} from './performance.js';
 
 export const outcomeOf = (e: RunEntry): RunStatus => e.outcome ?? e.status;
 
@@ -372,6 +380,8 @@ export interface ResultRow {
   status: ElementState;
   /** Where it happens: the screen the scenario planned, else the one that was actually observed. */
   screen?: { id: string; name: string };
+  /** Passed, but clearly slower than in earlier runs/campaigns (per OS). */
+  slow: Partial<Record<OS, Slowness>>;
 }
 export interface Totals {
   total: number;
@@ -391,12 +401,16 @@ export interface ScenarioResults {
   totals: Totals;
   /** passed = everything passed; failed = anything failed; pending = nothing run yet; partial = in between. */
   status: 'passed' | 'failed' | 'partial' | 'pending';
+  /** The scenario as a whole takes clearly longer than it used to (sum of its comparable steps). */
+  slow?: Slowness;
 }
 export interface CampaignResults {
   scenarios: ScenarioResults[];
   totals: Totals;
   /** Success rate per OS configured in the project (never the OS ticked in the title bar). */
   byOs: Partial<Record<OS, Totals>>;
+  /** Elements (on at least one OS) that got slower. */
+  slowCount: number;
 }
 const totalsOf = (states: ElementState[]): Totals => {
   const total = states.length;
@@ -434,6 +448,12 @@ export function buildResults(
   latest: Map<string, ElementResult> = latestResults(detail),
 ): CampaignResults {
   const scenarios: ScenarioResults[] = [];
+  // Yardstick for slowness: earlier campaigns, plus earlier runs of this campaign (the latest passed one is the subject).
+  const history = durationHistory(detail);
+  const samplesFor = (key: string, latestIsPassed: boolean) => [
+    ...(detail?.baselines?.[key] ?? []),
+    ...(history.get(key) ?? []).slice(0, latestIsPassed ? -1 : undefined),
+  ];
   for (const root of project.nodes.filter((n) => !isSupportScenario(n))) {
     // The screen each element happens on, following the scenario's own navigations.
     let current = root.startScreen
@@ -448,10 +468,15 @@ export function buildResults(
         const oses = applicableOs(node, project.platforms);
         const results: ResultRow['results'] = {};
         const states: ResultRow['states'] = {};
+        const slow: ResultRow['slow'] = {};
         for (const os of oses) {
           const r = latest.get(os + ':' + node.id);
           if (r) results[os] = r;
           states[os] = stateOf(r);
+          if (r && states[os] === 'passed') {
+            const s = slownessOf(durationOf(r.entry), samplesFor(os + ':' + node.id, true));
+            if (s) slow[os] = s;
+          }
         }
         const observed = oses
           .map((os) => results[os]?.entry)
@@ -469,6 +494,7 @@ export function buildResults(
           oses,
           results,
           states,
+          slow,
           status: aggregate(oses.map((os) => states[os]!)),
           screen: current ?? (observed ? { id: observed.id, name: observed.name } : undefined),
         });
@@ -477,11 +503,30 @@ export function buildResults(
     };
     walk(root.children, 0);
     const statuses = rows.map((r) => r.status);
+    // Whole scenario: compare the sum of its steps with the sum of their usual durations (comparable steps only).
+    let now = 0,
+      usual = 0;
+    for (const row of rows)
+      for (const os of row.oses) {
+        const r = row.results[os];
+        const key = os + ':' + row.node.id;
+        if (!r || row.states[os] !== 'passed') continue;
+        const samples = samplesFor(key, true);
+        const ms = durationOf(r.entry);
+        if (ms === undefined || !samples.length) continue;
+        now += ms;
+        usual += median(samples);
+      }
     scenarios.push({
       scenario: root,
       module: root.module,
       rows,
       totals: totalsOf(statuses),
+      slow: slownessOf(
+        usual ? now : undefined,
+        usual ? [usual] : undefined,
+        SLOW_MIN_EXTRA_SCENARIO_MS,
+      ),
       status: !rows.length
         ? 'pending'
         : statuses.includes('failed')
@@ -502,7 +547,12 @@ export function buildResults(
   // Overall progress counts every (element, OS) pair of the project: an element that works on iOS but was never run on
   // Android is half done, not failed and not done.
   const pairs = all.flatMap((r) => r.oses.map((os) => r.states[os]!));
-  return { scenarios, totals: totalsOf(pairs), byOs };
+  return {
+    scenarios,
+    totals: totalsOf(pairs),
+    byOs,
+    slowCount: all.filter((r) => Object.keys(r.slow).length > 0).length,
+  };
 }
 
 export type ScreenStatus2 = 'passed' | 'failed' | 'partial' | 'untested' | 'none';

@@ -32,6 +32,8 @@ export interface OpenOptions {
 export interface AiProvider {
   id: Provider;
   status(): Promise<ProviderStatus>;
+  /** Plan usage windows when the provider can tell (never a guess). */
+  limits?(): Promise<NonNullable<ProviderStatus['limits']>>;
   open(options: OpenOptions): Promise<Conversation>;
   login(
     report: (output: string, running: boolean) => void,

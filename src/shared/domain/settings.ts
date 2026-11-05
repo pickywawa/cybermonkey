@@ -62,6 +62,8 @@ export const settingsSchema = z.object({
   retryFailedSteps: z.boolean().default(true),
   /** Evidence kept per step: every step, only screens/checks/failures, or failures only. Fewer captures = faster runs. */
   executionProof: z.enum(['all', 'key', 'failures']).default('key'),
+  /** Look for accessibility problems on the screens a run goes through (reads the page source already fetched). */
+  accessibilityAudit: z.boolean().default(true),
   /** Screen video of each scenario, kept only when something failed in it (recording is dropped otherwise). */
   executionVideo: z.enum(['off', 'failures']).default('failures'),
   analysisMode: z.enum(['automatic', 'ask', 'off']).default('ask'),
@@ -104,6 +106,15 @@ export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings = (projectsDirectory: string): Settings =>
   settingsSchema.parse({ projectsDirectory });
 
+export interface TokenCount {
+  input: number;
+  output: number;
+}
+export interface TokenTotals {
+  today: TokenCount;
+  week: TokenCount;
+  total: TokenCount;
+}
 export interface ProviderStatus {
   provider: Provider;
   installed: boolean;
@@ -113,6 +124,10 @@ export interface ProviderStatus {
   models: { id: string; name: string }[];
   lastUsage?: { input: number; output: number };
   quota?: { label: string; usedPercent: number };
+  /** Usage windows of the plan (5 hours, 7 days…): share used and when it starts over. */
+  limits?: { id: string; label: string; usedPercent: number; resetsAt?: string }[];
+  /** Tokens Cybermonkey sent through the AI, counted on this machine. */
+  usage?: TokenTotals;
   /** Actionable help when something is wrong. */
   help?: string;
 }

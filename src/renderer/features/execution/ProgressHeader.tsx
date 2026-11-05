@@ -32,6 +32,11 @@ export function ProgressHeader({ results }: { results: CampaignResults }) {
             <span>
               <i /> {t('exec.remaining', { n: totals.remaining })}
             </span>
+            {results.slowCount > 0 && (
+              <span className="slow" title={t('slow.hint')}>
+                <i /> {t('slow.count', { n: results.slowCount })}
+              </span>
+            )}
             <span className="note">· {t('exec.elements', { n: totals.total })}</span>
           </div>
         </div>

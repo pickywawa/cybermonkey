@@ -250,6 +250,14 @@ export function SettingsDialog({
                   ))}
                 </select>
               </Field>
+              <Field label={t('set.ex.a11y')} hint={t('set.ex.a11yHint')}>
+                <Check
+                  checked={draft.accessibilityAudit}
+                  onChange={(v) => set({ accessibilityAudit: v })}
+                >
+                  {t('set.ex.a11yOn')}
+                </Check>
+              </Field>
               <Field label={t('set.ex.video')} hint={t('set.ex.videoHint')}>
                 <select
                   value={draft.executionVideo}

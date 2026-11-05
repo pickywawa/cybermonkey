@@ -5,7 +5,8 @@ import {
   effectiveVariables,
   type Project,
 } from '../../../shared/domain/project.js';
-import type { RunReport } from '../../../shared/domain/report.js';
+import type { CampaignDetail, RunReport } from '../../../shared/domain/report.js';
+import { BASELINE_CAMPAIGNS, baselinesFrom } from '../../../shared/domain/performance.js';
 import {
   flatten,
   nodePath,
@@ -94,8 +95,32 @@ export class Runner {
   }
 
   /* ---------- campaign access ---------- */
+  /**
+   * How long steps took in the campaigns before this one: the yardstick the results use to spot slowness. Read from disk,
+   * so it is cached for a short while (the answer only changes when another campaign is run).
+   */
+  private baselineCache = new Map<string, { at: number; value: Record<string, number[]> }>();
+  private async baselines(projectId: string, campaign: CampaignDetail['campaign']) {
+    const key = projectId + ':' + campaign.id;
+    const hit = this.baselineCache.get(key);
+    if (hit && Date.now() - hit.at < 30_000) return hit.value;
+    const earlier = (await this.deps.campaigns.list(projectId))
+      .filter((c) => c.id !== campaign.id && c.createdAt < campaign.createdAt)
+      .slice(0, BASELINE_CAMPAIGNS);
+    const details: CampaignDetail[] = [];
+    for (const c of earlier)
+      try {
+        details.push(await this.deps.campaigns.load(projectId, c.id));
+      } catch {
+        /* a damaged campaign is no yardstick */
+      }
+    const value = baselinesFrom(details);
+    this.baselineCache.set(key, { at: Date.now(), value });
+    return value;
+  }
   async loadCampaign(projectId: string, campaignId: string) {
     const detail = await this.deps.campaigns.load(projectId, campaignId);
+    detail.baselines = await this.baselines(projectId, detail.campaign).catch(() => undefined);
     for (let i = 0; i < detail.reports.length; i++) {
       const saved = detail.reports[i];
       const memory = this.reports.get(saved.id);
