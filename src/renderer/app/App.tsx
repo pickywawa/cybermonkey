@@ -202,17 +202,14 @@ function Shell() {
             <Welcome />
           ) : (
             <div className="workspace">
-              <aside className="sidebar" style={{ width: left.size ?? settings.leftWidth }}>
-                <ScenarioTree
-                  mode={tab}
-                  onRun={
-                    tab === 'execution'
-                      ? (id) => void run.start({ nodeId: id || undefined })
-                      : undefined
-                  }
-                />
-              </aside>
-              <div {...left.props} />
+              {tab === 'creation' && (
+                <>
+                  <aside className="sidebar" style={{ width: left.size ?? settings.leftWidth }}>
+                    <ScenarioTree mode="creation" />
+                  </aside>
+                  <div {...left.props} />
+                </>
+              )}
               <main className="center">
                 {tab === 'creation' ? (
                   <CreationCenter
