@@ -1,7 +1,7 @@
 {
   "name": "cybermonkey",
   "productName": "Cybermonkey",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Mobile QA workspace with AI-assisted scenarios (Android & iOS)",
   "type": "module",

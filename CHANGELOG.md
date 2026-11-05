@@ -1,4 +1,4 @@
-# Cybermonkey (à venir)
+# Cybermonkey 1.4.0
 
 **Jetons IA, accessibilité, lenteur**
 
