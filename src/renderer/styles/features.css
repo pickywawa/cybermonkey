@@ -811,13 +811,26 @@ input.inline:hover {
   flex: 1;
 }
 .camp-bar {
-  height: 44px;
+  min-height: 44px;
+  flex-wrap: wrap;
+  padding-block: 4px;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 12px 0 14px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
+}
+.camp-select {
+  flex: 1 1 180px;
+  max-width: 300px;
+}
+.camp-status {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.camp-bar > .grow {
+  flex: 1 1 0;
 }
 .camp-bar select {
   padding: 5px 9px;

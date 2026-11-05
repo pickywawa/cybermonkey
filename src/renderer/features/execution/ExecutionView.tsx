@@ -106,7 +106,7 @@ export function ExecutionView({ run }: { run: ReturnType<typeof useRun> }) {
       <div className="camp-bar">
         <FolderOpen size={14} color="var(--dim)" />
         <select
-          className="grow"
+          className="camp-select"
           value={campaign?.id ?? ''}
           onChange={(e) => void actions.updateProject({ activeCampaignId: e.target.value || null })}
         >
@@ -118,6 +118,58 @@ export function ExecutionView({ run }: { run: ReturnType<typeof useRun> }) {
             </option>
           ))}
         </select>
+        {campaign && (
+          <span className="note camp-status ellipsis">
+            <span className={`dot ${campaign.status === 'open' ? 'ok' : ''}`} />{' '}
+            {campaign.status === 'open' ? t('camp.open') : t('camp.completed')} ·{' '}
+            {t('camp.created', {
+              date: new Date(campaign.createdAt).toLocaleString(settings.language),
+            })}
+          </span>
+        )}
+        <span className="grow" />
+        {campaign && (
+          <>
+            <Menu
+              align="right"
+              trigger={(toggle) => (
+                <Button size="sm" icon={<Download size={13} />} onClick={toggle}>
+                  {t('camp.export')}
+                </Button>
+              )}
+            >
+              {(close) =>
+                EXPORT_FORMATS.map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => {
+                      close();
+                      void exportAs(f);
+                    }}
+                  >
+                    {t(`camp.fmt.${f}` as never)}
+                  </button>
+                ))
+              }
+            </Menu>
+            {run.running ? (
+              <Button size="sm" variant="danger" icon={<Square size={12} />} onClick={run.stop}>
+                {t('camp.stop')}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="primary"
+                busy={run.starting}
+                disabled={campaign.status !== 'open'}
+                icon={<Play size={13} />}
+                onClick={() => void run.start()}
+              >
+                {t('camp.runAll')}
+              </Button>
+            )}
+          </>
+        )}
         <Menu
           align="right"
           trigger={(toggle) => (
@@ -192,58 +244,6 @@ export function ExecutionView({ run }: { run: ReturnType<typeof useRun> }) {
       ) : (
         <>
           <div className="exec-top">
-            <div className="camp-title-row">
-              <div className="grow" style={{ minWidth: 0 }}>
-                <h1 className="camp-title ellipsis" title={campaign.label}>
-                  {campaign.label}
-                </h1>
-                <div className="note">
-                  <span className={`dot ${campaign.status === 'open' ? 'ok' : ''}`} />{' '}
-                  {campaign.status === 'open' ? t('camp.open') : t('camp.completed')} ·{' '}
-                  {t('camp.created', {
-                    date: new Date(campaign.createdAt).toLocaleString(settings.language),
-                  })}
-                </div>
-              </div>
-              <Menu
-                align="right"
-                trigger={(toggle) => (
-                  <Button size="sm" icon={<Download size={13} />} onClick={toggle}>
-                    {t('camp.export')}
-                  </Button>
-                )}
-              >
-                {(close) =>
-                  EXPORT_FORMATS.map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => {
-                        close();
-                        void exportAs(f);
-                      }}
-                    >
-                      {t(`camp.fmt.${f}` as never)}
-                    </button>
-                  ))
-                }
-              </Menu>
-              {run.running ? (
-                <Button size="sm" variant="danger" icon={<Square size={12} />} onClick={run.stop}>
-                  {t('camp.stop')}
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  busy={run.starting}
-                  disabled={campaign.status !== 'open'}
-                  icon={<Play size={13} />}
-                  onClick={() => void run.start()}
-                >
-                  {t('camp.runAll')}
-                </Button>
-              )}
-            </div>
             {run.error != null && <ErrorNotice error={run.error} />}
             {run.missing.length > 0 && (
               <div className="notice warn" style={{ margin: '8px 0 0' }}>
