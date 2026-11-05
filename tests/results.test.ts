@@ -96,7 +96,7 @@ test('results: one row per element, whatever the number of executions', () => {
   const count = (r: ReturnType<typeof buildResults>) => r.scenarios.flatMap((s) => s.rows).length;
   assert.equal(count(once), 9, 'the project has nine elements (the handler is not one)');
   assert.equal(count(twice), 9);
-  assert.equal(twice.totals.total, 9);
+  assert.equal(twice.totals.total, 17, 'element × OS pairs, however many runs');
   assert.equal(twice.scenarios.map((s) => s.scenario.name).join(), 'Connexion,Profil,Libre');
 });
 
@@ -174,11 +174,11 @@ test('results: success rates are per OS of the project and counts are per elemen
   assert.equal(res.byOs.ios?.failed, 1);
   assert.deepEqual(
     [res.totals.total, res.totals.passed, res.totals.failed, res.totals.remaining],
-    [9, 2, 1, 6],
+    [17, 7, 1, 9],
   );
-  // login and the Android-only check passed wherever they apply; typing the login failed on iOS; the rest is incomplete.
-  assert.equal(res.totals.rate, 22);
-  assert.equal(res.totals.tested, 33);
+  // Overall progress counts element × OS pairs: 6 Android + 1 iOS passed, 1 iOS failed, 9 not run yet.
+  assert.equal(res.totals.rate, 41);
+  assert.equal(res.totals.tested, 47);
   const sc = res.scenarios[0];
   assert.equal(sc.status, 'failed');
   assert.equal(res.scenarios[1].status, 'pending');
@@ -211,7 +211,7 @@ test('results: each element knows its screen, from the scenario’s own navigati
   ]);
   assert.equal(res.scenarios[2].rows[0].screen, undefined, 'a scenario without screens: no screen');
   assert.equal(res.totals.passed, 0);
-  assert.equal(res.totals.remaining, 9);
+  assert.equal(res.totals.remaining, 17);
 });
 
 test('screens: a screen is valid when every check on it passed; without a check it says so', () => {
@@ -308,4 +308,27 @@ test('screens: where a scenario starts is a screen too, even before anything hap
     ],
   );
   assert.equal(screens[0].elements.length, 0);
+});
+
+test('results: the overall rate counts element × OS pairs — 2 of 4 passing on iOS only is 25 %', () => {
+  const four = scenario('Quatre', [
+    node('action', 'a'),
+    node('action', 'b'),
+    node('action', 'c'),
+    node('action', 'd'),
+  ]);
+  const p = { nodes: [four], platforms: ['android', 'ios'] as const };
+  const res = buildResults(
+    p,
+    detail(
+      report('r', '2026-01-01', [
+        entry(four.children[0], 'ios', 'passed'),
+        entry(four.children[1], 'ios', 'passed'),
+      ]),
+    ),
+  );
+  assert.equal(res.totals.total, 8);
+  assert.equal(res.totals.passed, 2);
+  assert.equal(res.totals.failed, 0);
+  assert.equal(res.totals.rate, 25);
 });

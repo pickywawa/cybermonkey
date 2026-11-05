@@ -4,12 +4,13 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Compass,
+  Loader2,
   MousePointerClick,
   Search,
   ShieldCheck,
   Wand2,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ResultRow } from '../../../shared/domain/campaign';
 import type { CampaignDetail } from '../../../shared/domain/report';
 import { pendingRepairs } from '../../../shared/domain/repairs';
@@ -129,128 +130,244 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
   };
   const countOf = (f: Filter) => all.filter((r) => matches(r, f)).length;
 
+  const visibleRows = groups.flatMap((g) =>
+    g.rows.map((row) => ({ row, scenarioId: g.sc.scenario.id })),
+  );
+  /** Scrubbing the rail: show that step's capture on the device panel and bring the row into view. */
+  const scrub = (row: ResultRow) => {
+    exec.setCollapsed([row.scenarioId], false);
+    exec.reveal(row.node.id, 'results');
+    void actions.updateProject({ selectedNodeId: row.node.id });
+    const r = pickResult(row);
+    if (r)
+      void call('replay.select', {
+        projectId: project.id,
+        frame: { runId: r.runId, entry: r.entry },
+      });
+    document.getElementById('res-' + row.node.id)?.scrollIntoView({ block: 'nearest' });
+  };
+
   return (
     <div className="results-list">
-      <div className="list-tools">
-        <div className="search grow">
-          <Search size={13} />
-          <input
-            placeholder={t('exec.search')}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-        <FilterMenu
-          selected={filters}
-          onChange={setFilters}
-          options={FILTERS.map((f) => ({
-            value: f,
-            label: t(`exec.f.${f}` as never),
-            count: countOf(f),
-          }))}
+      {visibleRows.length > 0 && (
+        <StepRail
+          steps={visibleRows}
+          oses={project.platforms}
+          selected={project.selectedNodeId}
+          onScrub={scrub}
         />
-        <IconButton
-          label={exec.passedFolded ? t('exec.expandPassed') : t('exec.collapsePassed')}
-          onClick={exec.foldPassed}
-        >
-          {exec.passedFolded ? <ChevronsUpDown size={15} /> : <ChevronsDownUp size={15} />}
-        </IconButton>
-        <span className="note">
-          {shownCount} / {all.length}
-        </span>
-      </div>
-      {repairs.length > 0 && (
-        <div className="notice" style={{ margin: '0 0 10px' }}>
-          <Wand2 size={15} />
-          <div className="grow">
-            <div className="title">{t('prog.repairs', { n: repairs.length })}</div>
-            <div className="note">{t('prog.repairsHint')}</div>
-          </div>
-          <Button size="sm" busy={applying} onClick={() => void applyAll()}>
-            {t('prog.repairsApply')}
-          </Button>
-        </div>
       )}
-      {!all.length && <div className="empty note">{t('prog.none')}</div>}
-      {groups.map(({ sc, rows }) => {
-        const folded = collapsed.has(sc.scenario.id);
-        let previousScreen: string | undefined;
-        return (
-          <section key={sc.scenario.id} className={`res-group st-${sc.status}`}>
-            <header
-              id={'res-' + sc.scenario.id}
-              className={`res-scenario ${project.selectedNodeId === sc.scenario.id ? 'sel' : ''} ${pulse === sc.scenario.id ? 'pulse' : ''}`}
-              onClick={() => exec.toggle(sc.scenario.id)}
-            >
-              {folded ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
-              <b className="ellipsis grow">{sc.scenario.name}</b>
-              {sc.module && <span className="module-tag">{sc.module}</span>}
-              <span className={`group-count ${sc.status}`}>
-                {sc.totals.passed}/{sc.totals.total}
-                {sc.totals.failed > 0 && <em> · {sc.totals.failed} ✗</em>}
-              </span>
-            </header>
-            {!folded &&
-              rows.map((row) => {
-                const Icon = KIND_ICON[row.node.kind as keyof typeof KIND_ICON] ?? ShieldCheck;
-                const screenChanged = row.screen?.id !== previousScreen;
-                previousScreen = row.screen?.id;
-                const isOpen = open.has(row.node.id);
-                const done = Object.values(row.results).map((r) => r!.entry);
-                const seconds = done
-                  .filter((e) => e.finishedAt)
-                  .reduce(
-                    (n, e) => n + (Date.parse(e.finishedAt!) - Date.parse(e.startedAt)) / 1000,
-                    0,
-                  );
-                return (
-                  <div key={row.node.id}>
-                    {screenChanged && row.screen && (
-                      <div className="screen-sep">
-                        <span>{row.screen.name}</span>
-                      </div>
-                    )}
-                    <div
-                      id={'res-' + row.node.id}
-                      className={`res-row st-${row.status} ${project.selectedNodeId === row.node.id ? 'sel' : ''} ${pulse === row.node.id ? 'pulse' : ''}`}
-                      style={{ paddingLeft: 12 + row.depth * 14 }}
-                      onClick={() => choose(row)}
-                    >
-                      <Icon size={13} className={`kind-${row.node.kind}`} />
-                      <span className="grow ellipsis" title={row.node.name}>
-                        {row.node.name}
-                      </span>
-                      {done.some((e) => e.healing) && (
-                        <span title={t('res.healed')}>
-                          <Wand2 size={12} color="var(--accent)" />
-                        </span>
+      <div className="results-main">
+        <div className="list-tools">
+          <div className="search grow">
+            <Search size={13} />
+            <input
+              placeholder={t('exec.search')}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <FilterMenu
+            selected={filters}
+            onChange={setFilters}
+            options={FILTERS.map((f) => ({
+              value: f,
+              label: t(`exec.f.${f}` as never),
+              count: countOf(f),
+            }))}
+          />
+          <IconButton
+            label={exec.passedFolded ? t('exec.expandPassed') : t('exec.collapsePassed')}
+            onClick={exec.foldPassed}
+          >
+            {exec.passedFolded ? <ChevronsUpDown size={15} /> : <ChevronsDownUp size={15} />}
+          </IconButton>
+          <span className="note">
+            {shownCount} / {all.length}
+          </span>
+        </div>
+        {repairs.length > 0 && (
+          <div className="notice" style={{ margin: '0 0 10px' }}>
+            <Wand2 size={15} />
+            <div className="grow">
+              <div className="title">{t('prog.repairs', { n: repairs.length })}</div>
+              <div className="note">{t('prog.repairsHint')}</div>
+            </div>
+            <Button size="sm" busy={applying} onClick={() => void applyAll()}>
+              {t('prog.repairsApply')}
+            </Button>
+          </div>
+        )}
+        {!all.length && <div className="empty note">{t('prog.none')}</div>}
+        {groups.map(({ sc, rows }) => {
+          const folded = collapsed.has(sc.scenario.id);
+          let previousScreen: string | undefined;
+          return (
+            <section key={sc.scenario.id} className={`res-group st-${sc.status}`}>
+              <header
+                id={'res-' + sc.scenario.id}
+                className={`res-scenario ${project.selectedNodeId === sc.scenario.id ? 'sel' : ''} ${pulse === sc.scenario.id ? 'pulse' : ''}`}
+                onClick={() => exec.toggle(sc.scenario.id)}
+              >
+                {folded ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                <b className="ellipsis grow">{sc.scenario.name}</b>
+                {sc.module && <span className="module-tag">{sc.module}</span>}
+                <span className={`group-count ${sc.status}`}>
+                  {sc.totals.passed}/{sc.totals.total}
+                  {sc.totals.failed > 0 && <em> · {sc.totals.failed} ✗</em>}
+                </span>
+              </header>
+              {!folded &&
+                rows.map((row) => {
+                  const Icon = KIND_ICON[row.node.kind as keyof typeof KIND_ICON] ?? ShieldCheck;
+                  const screenChanged = row.screen?.id !== previousScreen;
+                  previousScreen = row.screen?.id;
+                  const isOpen = open.has(row.node.id);
+                  const done = Object.values(row.results).map((r) => r!.entry);
+                  const seconds = done
+                    .filter((e) => e.finishedAt)
+                    .reduce(
+                      (n, e) => n + (Date.parse(e.finishedAt!) - Date.parse(e.startedAt)) / 1000,
+                      0,
+                    );
+                  return (
+                    <div key={row.node.id}>
+                      {screenChanged && row.screen && (
+                        <div className="screen-sep">
+                          <span>{row.screen.name}</span>
+                        </div>
                       )}
-                      {done.some((e) => e.flaky) && <Badge tone="warn">{t('res.flaky')}</Badge>}
-                      <span className="os-marks">
-                        {row.oses.map((os) => (
-                          <OsMark
-                            key={os}
-                            os={os}
-                            state={row.states[os]!}
-                            language={settings?.language}
-                          />
-                        ))}
-                      </span>
-                      <span className="note dur">{seconds ? seconds.toFixed(1) + ' s' : ''}</span>
-                      {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    </div>
-                    {isOpen && (
-                      <div className="res-detail">
-                        <ResultDetail row={row} stability={stability} />
+                      <div
+                        id={'res-' + row.node.id}
+                        className={`res-row st-${row.status} ${project.selectedNodeId === row.node.id ? 'sel' : ''} ${pulse === row.node.id ? 'pulse' : ''}`}
+                        style={{ paddingLeft: 12 + row.depth * 14 }}
+                        onClick={() => choose(row)}
+                      >
+                        {row.status === 'running' ? (
+                          <Loader2 size={13} className="spin run-icon" />
+                        ) : (
+                          <Icon size={13} className={`kind-${row.node.kind}`} />
+                        )}
+                        <span className="grow ellipsis" title={row.node.name}>
+                          {row.node.name}
+                        </span>
+                        {done.some((e) => e.healing) && (
+                          <span title={t('res.healed')}>
+                            <Wand2 size={12} color="var(--accent)" />
+                          </span>
+                        )}
+                        {done.some((e) => e.flaky) && <Badge tone="warn">{t('res.flaky')}</Badge>}
+                        <span className="os-marks">
+                          {row.oses.map((os) => (
+                            <OsMark
+                              key={os}
+                              os={os}
+                              state={row.states[os]!}
+                              language={settings?.language}
+                            />
+                          ))}
+                        </span>
+                        <span className="note dur">{seconds ? seconds.toFixed(1) + ' s' : ''}</span>
+                        {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-          </section>
-        );
-      })}
-      {!!all.length && !shownCount && <div className="empty note">{t('res.none')}</div>}
+                      {isOpen && (
+                        <div className="res-detail">
+                          <ResultDetail row={row} stability={stability} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </section>
+          );
+        })}
+        {!!all.length && !shownCount && <div className="empty note">{t('res.none')}</div>}
+      </div>
+    </div>
+  );
+}
+
+const RAIL_TONE: Record<string, string> = {
+  passed: 'ok',
+  failed: 'bad',
+  running: 'run',
+};
+
+/**
+ * A vertical strip with one segment per step (green passed, red failed, white not run), one column per OS of the
+ * project. Press and slide the mouse along it: each step you cross shows its capture on the device panel.
+ */
+function StepRail({
+  steps,
+  oses,
+  selected,
+  onScrub,
+}: {
+  steps: { row: ResultRow; scenarioId: string }[];
+  oses: readonly string[];
+  selected: string | null | undefined;
+  onScrub(row: ResultRow): void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const last = useRef<string | null>(null);
+  const [hover, setHover] = useState<{ y: number; name: string } | null>(null);
+  const at = (clientY: number) => {
+    const box = ref.current?.getBoundingClientRect();
+    if (!box || !steps.length) return null;
+    const i = Math.min(
+      steps.length - 1,
+      Math.max(0, Math.floor(((clientY - box.top) / box.height) * steps.length)),
+    );
+    return { i, y: clientY - box.top, step: steps[i]! };
+  };
+  const go = (clientY: number, scrubbing: boolean) => {
+    const hit = at(clientY);
+    if (!hit) return;
+    setHover({ y: hit.y, name: hit.step.row.node.name });
+    if (scrubbing && last.current !== hit.step.row.node.id) {
+      last.current = hit.step.row.node.id;
+      onScrub(hit.step.row);
+    }
+  };
+  let previous: string | undefined;
+  return (
+    <div className="step-rail-wrap">
+      <div
+        ref={ref}
+        className="step-rail"
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          last.current = null;
+          go(e.clientY, true);
+        }}
+        onPointerMove={(e) => go(e.clientY, e.buttons === 1)}
+        onPointerUp={() => (last.current = null)}
+        onPointerLeave={() => setHover(null)}
+      >
+        {steps.map(({ row, scenarioId }) => {
+          const gap = previous !== undefined && previous !== scenarioId;
+          previous = scenarioId;
+          return (
+            <div
+              key={row.node.id}
+              className={`rail-step ${gap ? 'gap' : ''} ${selected === row.node.id ? 'cur' : ''}`}
+            >
+              {oses.map((os) => (
+                <i
+                  key={os}
+                  className={RAIL_TONE[row.states[os as keyof typeof row.states] ?? ''] ?? ''}
+                  style={row.oses.includes(os as never) ? undefined : { visibility: 'hidden' }}
+                />
+              ))}
+            </div>
+          );
+        })}
+        {hover && (
+          <span className="rail-tip" style={{ top: hover.y }}>
+            {hover.name}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

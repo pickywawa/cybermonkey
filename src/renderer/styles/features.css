@@ -1161,3 +1161,102 @@ input.inline:hover {
   gap: 6px;
   color: var(--dim);
 }
+
+/* Test being executed right now: a moving accent bar, a soft glow and a spinning icon. */
+.os-col {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+.run-icon {
+  flex: none;
+  color: var(--accent);
+}
+.tree-row.st-running,
+.res-row.st-running {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+  animation: run-glow 1.4s ease-in-out infinite alternate;
+}
+@keyframes run-glow {
+  from {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+  to {
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
+  }
+}
+
+/* Vertical step strip beside the results: one segment per step, one column per OS. */
+.results-list {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.results-main {
+  flex: 1;
+  min-width: 0;
+}
+.step-rail-wrap {
+  position: sticky;
+  top: 12px;
+  flex: none;
+  align-self: flex-start;
+  padding: 4px 0;
+}
+.step-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 22px;
+  height: min(72vh, 640px);
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+.rail-step {
+  display: flex;
+  flex: 1 1 0;
+  gap: 2px;
+  min-height: 3px;
+  border-radius: 2px;
+}
+.rail-step.gap {
+  margin-top: 5px;
+}
+.rail-step i {
+  flex: 1;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 82%, transparent);
+}
+.rail-step i.ok {
+  background: var(--ok);
+}
+.rail-step i.bad {
+  background: var(--danger);
+}
+.rail-step i.run {
+  background: var(--accent);
+  animation: link-pulse 1s ease-in-out infinite alternate;
+}
+.rail-step.cur {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.rail-tip {
+  position: absolute;
+  left: 30px;
+  z-index: 5;
+  max-width: 260px;
+  padding: 3px 8px;
+  overflow: hidden;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel, var(--side));
+  transform: translateY(-50%);
+}

@@ -871,11 +871,11 @@ export const en: Record<Key, string> = {
   'exec.progress': 'Campaign progress',
   'exec.rate': 'passed',
   'exec.rateHint':
-    'Share of elements whose last result is “passed”, across every OS of the project.',
+    'Share of element × OS pairs whose last result is “passed”: an element passing on iOS only counts for half.',
   'exec.passed': '{n} passed',
   'exec.failed': '{n} failed',
   'exec.remaining': '{n} to test',
-  'exec.elements': '{n} elements',
+  'exec.elements': '{n} element × OS checks',
   'exec.osHint': 'Success rate on {os}: passed elements among those that apply to {os}.',
   'exec.filters': 'Filters',
   'exec.filters.reset': 'Show everything',

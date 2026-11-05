@@ -499,7 +499,10 @@ export function buildResults(
     const states = all.filter((r) => r.oses.includes(os)).map((r) => r.states[os]!);
     byOs[os] = totalsOf(states);
   }
-  return { scenarios, totals: totalsOf(all.map((r) => r.status)), byOs };
+  // Overall progress counts every (element, OS) pair of the project: an element that works on iOS but was never run on
+  // Android is half done, not failed and not done.
+  const pairs = all.flatMap((r) => r.oses.map((os) => r.states[os]!));
+  return { scenarios, totals: totalsOf(pairs), byOs };
 }
 
 export type ScreenStatus2 = 'passed' | 'failed' | 'partial' | 'untested' | 'none';

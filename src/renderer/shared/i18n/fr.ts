@@ -886,11 +886,11 @@ export const fr = {
   'exec.progress': 'Avancement de la campagne',
   'exec.rate': 'réussis',
   'exec.rateHint':
-    'Part des éléments dont le dernier résultat est « réussi », sur tous les OS du projet.',
+    'Part des couples élément × OS dont le dernier résultat est « réussi » : un élément réussi sur iOS seulement vaut la moitié.',
   'exec.passed': '{n} réussis',
   'exec.failed': '{n} en échec',
   'exec.remaining': '{n} à tester',
-  'exec.elements': '{n} éléments',
+  'exec.elements': '{n} éléments × OS',
   'exec.osHint': 'Taux de réussite sur {os} : éléments réussis parmi ceux qui s’appliquent à {os}.',
   'exec.filters': 'Filtres',
   'exec.filters.reset': 'Tout afficher',
