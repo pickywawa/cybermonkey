@@ -4,7 +4,9 @@ import {
   Circle,
   ExternalLink,
   FileUp,
+  ChevronDown,
   MessageSquarePlus,
+  MessagesSquare,
   Sparkles,
   Square,
   TriangleAlert,
@@ -17,6 +19,7 @@ import { call } from '../../shared/api';
 import { useT } from '../../shared/i18n';
 import { Button, IconButton, Segmented, Spinner } from '../../shared/ui/controls';
 import { ErrorNotice } from '../../shared/ui/notices';
+import { Menu } from '../../shared/ui/overlays';
 import { useActions, useActiveDevices, useApp } from '../../app/store';
 import { useUi } from '../../app/ui';
 import { useWorkbench } from '../devices/workbench';
@@ -262,27 +265,69 @@ export function CreationPanel({ detached }: { detached?: boolean }) {
               >
                 {t('ai.import')}
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                icon={<MessageSquarePlus size={13} />}
-                onClick={newSession}
+              <Menu
+                up
+                align="right"
+                trigger={(toggle) => (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<MessagesSquare size={13} />}
+                    onClick={toggle}
+                    title={t('ai.sessions')}
+                  >
+                    <span className="ellipsis" style={{ maxWidth: 130 }}>
+                      {project.chatSessions.find((x) => x.id === sessionId)?.name ??
+                        t('ai.newSession')}
+                    </span>{' '}
+                    <ChevronDown size={11} />
+                  </Button>
+                )}
               >
-                {t('ai.newSession')}
-              </Button>
-              <select
-                style={{ width: 120 }}
-                value={sessionId ?? ''}
-                onChange={(e) =>
-                  void actions.updateProject({ activeChatSessionId: e.target.value })
-                }
-              >
-                {project.chatSessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+                {(close) => (
+                  <div className="session-list">
+                    {[...project.chatSessions].reverse().map((x) => {
+                      const count = project.messages.filter((m) => m.sessionId === x.id).length;
+                      const last = [...project.messages]
+                        .reverse()
+                        .find((m) => m.sessionId === x.id)?.at;
+                      return (
+                        <button
+                          key={x.id}
+                          className={`sess ${x.id === sessionId ? 'on' : ''}`}
+                          onClick={() => {
+                            close();
+                            void actions.updateProject({ activeChatSessionId: x.id });
+                          }}
+                        >
+                          <b className="ellipsis">{x.name}</b>
+                          <span className="note">
+                            {t('ai.sessionMeta', {
+                              n: count,
+                              date: new Date(last ?? x.createdAt).toLocaleString(
+                                settings.language,
+                                {
+                                  dateStyle: 'short',
+                                  timeStyle: 'short',
+                                },
+                              ),
+                            })}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <hr />
+                    <button
+                      onClick={() => {
+                        close();
+                        newSession();
+                      }}
+                    >
+                      <MessageSquarePlus size={13} /> {t('ai.newSession')}
+                    </button>
+                  </div>
+                )}
+              </Menu>
               <Button
                 variant="primary"
                 size="sm"

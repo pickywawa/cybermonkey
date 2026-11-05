@@ -57,10 +57,13 @@ export function Menu({
   trigger,
   children,
   align = 'left',
+  up = false,
 }: {
   trigger: (toggle: () => void, open: boolean) => ReactNode;
   children: (close: () => void) => ReactNode;
   align?: 'left' | 'right';
+  /** Open above the trigger (for controls at the bottom of a panel). */
+  up?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -79,7 +82,10 @@ export function Menu({
     <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
       {trigger(() => setOpen((o) => !o), open)}
       {open && (
-        <div className="popover" style={{ top: 'calc(100% + 4px)', [align]: 0 }}>
+        <div
+          className="popover"
+          style={{ [up ? 'bottom' : 'top']: 'calc(100% + 4px)', [align]: 0 }}
+        >
           {children(() => setOpen(false))}
         </div>
       )}

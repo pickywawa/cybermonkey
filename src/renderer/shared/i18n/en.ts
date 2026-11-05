@@ -345,7 +345,9 @@ export const en: Record<Key, string> = {
   'ai.autoHint':
     'No questions: the AI carries on alone (the final proposal still needs your review)',
   'ai.import': 'Import',
-  'ai.newSession': 'Session',
+  'ai.newSession': 'New session',
+  'ai.sessions': 'Chat sessions',
+  'ai.sessionMeta': '{n} message(s) · {date}',
   'ai.send': 'Send',
   'q.title': 'AI question',
   'q.variable': 'Create a variable?',

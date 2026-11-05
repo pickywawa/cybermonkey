@@ -1274,3 +1274,18 @@ input.inline:hover {
   font-size: 12px;
   font-style: italic;
 }
+
+/* Chat sessions popup. */
+.session-list {
+  min-width: 250px;
+  max-height: 320px;
+  overflow: auto;
+}
+.session-list button.sess {
+  display: grid;
+  gap: 1px;
+  text-align: left;
+}
+.session-list button.on {
+  background: var(--sel);
+}
