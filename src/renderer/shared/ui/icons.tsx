@@ -3,9 +3,16 @@ import type { OS } from '../../../shared/domain/scenario';
 export const Logo = ({ size = 28 }: { size?: number }) => (
   <img src="./cybermonkey.svg" width={size} height={size} alt="" />
 );
-export function PlatformIcon({ os, size = 14 }: { os: OS; size?: number }) {
+/** `plain`: the glyph takes the text colour instead of the brand colour (Android is green, which reads as « passed »). */
+export function PlatformIcon({ os, size = 14, plain }: { os: OS; size?: number; plain?: boolean }) {
   return os === 'android' ? (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="var(--android)" aria-label="Android">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={plain ? 'currentColor' : 'var(--android)'}
+      aria-label="Android"
+    >
       <path d="M17.6 9.5a1 1 0 0 0 0-2l-.8-1.4 1.1-1.9a.5.5 0 0 0-.9-.5l-1.1 1.9A6 6 0 0 0 12 5a6 6 0 0 0-3.9.9L7 4a.5.5 0 0 0-.9.5l1.1 1.9-.8 1.4a1 1 0 0 0 0 2A6.5 6.5 0 0 0 5.5 14h13a6.5 6.5 0 0 0-.9-4.5ZM9.5 11a.8.8 0 1 1 0-1.600.8.8 0 0 1 0 1.600Zm5 0a.8.8 0 1 1 0-1.600.8.8 0 0 1 0 1.600ZM5.500 15v4a1.500 1.500 0 0 0 3 0v-4h-3Zm10 0v4a1.500 1.500 0 0 0 3 0v-4h-3Zm-6.500 0v5a1.500 1.500 0 0 0 1.500 1.500h.5V15H9Zm3.500 0v6.500h.5a1.500 1.500 0 0 0 1.500-1.500v-5h-2Z" />
     </svg>
   ) : (

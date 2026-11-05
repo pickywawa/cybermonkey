@@ -207,13 +207,6 @@ export function registerHandlers(
     });
     return result.canceled ? null : result.filePaths[0];
   });
-  ipc.handle('projects.importLegacy', async () => {
-    const result = await dialog.showOpenDialog(windows.main()!, {
-      title: 'Importer un projet Cyberfox / Cybermonkey',
-      properties: ['openDirectory'],
-    });
-    return result.canceled ? null : mutated(c.store.importLegacy(result.filePaths[0]));
-  });
   ipc.handle('projects.applicationInfo', (i) =>
     c.automation.applicationInfo(deviceFor(c, i), i.application),
   );

@@ -94,11 +94,15 @@ function step(
 const DEMO_FLOW: {
   os?: OS[];
   scenario: string;
+  module?: string;
+  /** Never run in the demonstration campaign: shows the « to test » state. */
+  untested?: boolean;
   start?: keyof typeof SCREENS;
   steps: [ReturnType<typeof step>, keyof typeof SCREENS][];
 }[] = [
   {
     scenario: 'Connexion et découverte',
+    module: 'Compte',
     start: 'login',
     steps: [
       [step('navigation', 'Se connecter à Atlas', 'home'), 'home'],
@@ -107,6 +111,7 @@ const DEMO_FLOW: {
   },
   {
     scenario: 'Collections',
+    module: 'Bibliothèque',
     steps: [
       [step('navigation', 'Ouvrir mes collections', 'collections'), 'collections'],
       [step('test', 'Vérifier les collections', 'collections'), 'collections'],
@@ -115,6 +120,7 @@ const DEMO_FLOW: {
   },
   {
     scenario: 'Mon profil',
+    module: 'Compte',
     steps: [
       [step('navigation', 'Ouvrir le profil', 'profile'), 'profile'],
       [step('test', 'Vérifier les informations du profil', 'profile'), 'profile'],
@@ -122,11 +128,22 @@ const DEMO_FLOW: {
       [step('test', 'Vérifier le thème sombre', 'settings'), 'settings'],
     ],
   },
+  {
+    scenario: 'Panier et paiement',
+    module: 'Paiement',
+    untested: true,
+    steps: [
+      [step('navigation', 'Ouvrir le panier', 'home'), 'home'],
+      [step('test', 'Vérifier le total', 'home'), 'home'],
+      [step('test', 'Vérifier le bouton payer', 'home'), 'home'],
+    ],
+  },
 ];
 function demoProject(): Project {
   const roots = DEMO_FLOW.map((f) => {
     const root = makeNode('scenario', f.scenario, []);
     if (f.start) root.startScreen = defOf(f.start);
+    if (f.module) root.module = f.module;
     root.children = f.steps.map(([n]) => n);
     return root;
   });
@@ -219,6 +236,8 @@ export function createMockBridge(): Bridge {
     for (const [index, [node, target]] of flow.flow.steps.entries())
       for (const os of ['android', 'ios'] as OS[]) {
         if (!node.variants[os]) continue; // single-OS step: nothing to run on the other OS
+        if (flow.flow.untested) continue;
+        if (os === 'ios' && node.name === 'Vérifier les collections') continue; // run on Android only: partial
         const real = flow.root.children[index];
         const before = here.get(os)!;
         const at = t0 + seq * 3100;
@@ -334,7 +353,6 @@ export function createMockBridge(): Bridge {
     'projects.reveal': () => {},
     'projects.remove': () => {},
     'projects.chooseDirectory': () => null,
-    'projects.importLegacy': () => null,
     'projects.applications': () => [
       { id: 'com.atlas.mobile', name: 'Atlas Mobile' },
       { id: 'com.demo.notes', name: 'Notes' },

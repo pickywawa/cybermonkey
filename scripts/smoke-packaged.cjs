@@ -15,10 +15,9 @@ const need = [
   `@github/copilot-${key}/copilot${exe}`,
 ];
 const missing = need.filter((f) => !fs.existsSync(path.join(modules, f)));
-const codex = [
-  `@openai/codex-${key}/vendor`,
-  '@openai/codex/vendor',
-].some((f) => fs.existsSync(path.join(modules, f)));
+const codex = [`@openai/codex-${key}/vendor`, '@openai/codex/vendor'].some((f) =>
+  fs.existsSync(path.join(modules, f)),
+);
 if (!codex) missing.push('@openai/codex vendor binaries');
 if (missing.length) {
   console.error('MISSING in the package:\n  ' + missing.join('\n  '));
@@ -30,7 +29,9 @@ if (missing.length) {
     .png()
     .toBuffer();
   if (!png.length) throw new Error('sharp produced nothing');
-  console.log(`OK ${key}: native binaries present, sharp ${sharp.versions?.sharp ?? ''} works (${png.length} bytes)`);
+  console.log(
+    `OK ${key}: native binaries present, sharp ${sharp.versions?.sharp ?? ''} works (${png.length} bytes)`,
+  );
 })().catch((e) => {
   console.error('FAILED to load a native module:', e);
   process.exit(1);

@@ -102,6 +102,24 @@ export function NodeEditor({ node }: { node: ScenarioNode }) {
           onChange={(e) => patch({ name: e.target.value })}
         />
       </Field>
+      {!isStep && (
+        <Field label={t('node.module')} hint={t('node.moduleHint')}>
+          <input
+            list="known-modules"
+            value={node.module ?? ''}
+            placeholder={t('node.modulePlaceholder')}
+            maxLength={80}
+            onChange={(e) => patch({ module: e.target.value.trim() ? e.target.value : undefined })}
+          />
+          <datalist id="known-modules">
+            {[...new Set(project.nodes.map((n) => n.module).filter((m): m is string => !!m))].map(
+              (m) => (
+                <option key={m} value={m} />
+              ),
+            )}
+          </datalist>
+        </Field>
+      )}
       <Field label={t('ed.description')}>
         <textarea
           rows={2}

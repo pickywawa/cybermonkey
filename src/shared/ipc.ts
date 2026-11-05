@@ -84,7 +84,6 @@ export interface Contract {
   'projects.remove': [string, void];
   'projects.reveal': [string, void];
   'projects.chooseDirectory': [void, string | null];
-  'projects.importLegacy': [void, Project | null];
   'projects.applicationInfo': [
     { projectId?: string; deviceId?: string; platform: OS; application: string },
     AppInfo,
@@ -198,7 +197,7 @@ export type Channel = keyof Contract;
 export type Input<C extends Channel> = Contract[C][0];
 export type Output<C extends Channel> = Contract[C][1];
 
-export type MenuAction = 'new-project' | 'edit-project' | 'import-legacy' | 'open-settings';
+export type MenuAction = 'new-project' | 'edit-project' | 'open-settings';
 export type LiveEvent =
   | { type: 'update'; status: UpdateStatus }
   | { type: 'device'; deviceId: string; ready: boolean }

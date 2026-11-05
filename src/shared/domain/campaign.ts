@@ -303,3 +303,278 @@ export function layoutGraph(
   const width = (Math.max(0, ...columns.keys()) + 1) * (cell.w + cell.gx);
   return { positions, width, height, cell };
 }
+
+/* ---------- results by element: what the Execution view shows ---------- */
+
+/**
+ * A campaign view is about the ELEMENTS of the scenarios, each with its LAST result: running a test again replaces its
+ * result, it never adds one. (The earlier executions stay on disk: stability, regressions and « compare with the last
+ * pass » read them, but nothing here counts or lists them.)
+ */
+export interface ElementResult {
+  entry: RunEntry;
+  runId: string;
+  outcome: RunStatus;
+}
+/** Last result of each (OS, element) of a campaign. A step played once per dataset row counts as its worst row. */
+export function latestResults(detail: CampaignDetail | null): Map<string, ElementResult> {
+  const latest = new Map<string, ElementResult>();
+  const rank = (s: RunStatus) =>
+    ({ failed: 5, blocked: 4, cancelled: 3, skipped: 2, passed: 1 })[s as 'failed'] ?? 0;
+  for (const report of [...(detail?.reports ?? [])].sort((a, b) =>
+    a.startedAt.localeCompare(b.startedAt),
+  )) {
+    const kinds = new Map(flatten(report.snapshot).map((n) => [n.id, n.kind]));
+    const within = new Map<string, ElementResult>();
+    for (const e of report.entries) {
+      if (
+        e.preparation ||
+        e.interruption ||
+        e.precondition ||
+        (e.kind ?? kinds.get(e.nodeId)) === 'scenario' ||
+        e.nodeId === 'engine'
+      )
+        continue;
+      const key = e.platform + ':' + e.nodeId;
+      const outcome = outcomeOf(e);
+      const previous = within.get(key);
+      if (e.iteration && previous && rank(outcome) <= rank(previous.outcome)) continue;
+      within.set(key, { entry: e, runId: report.id, outcome });
+    }
+    for (const [key, result] of within) latest.set(key, result);
+  }
+  return latest;
+}
+
+/** What one OS says about one element. */
+export type ElementState = 'passed' | 'failed' | 'running' | 'other' | 'pending';
+export const stateOf = (r: ElementResult | undefined): ElementState =>
+  !r
+    ? 'pending'
+    : r.outcome === 'passed'
+      ? 'passed'
+      : r.outcome === 'failed'
+        ? 'failed'
+        : r.outcome === 'running'
+          ? 'running'
+          : 'other'; // blocked, skipped, cancelled, not applicable
+
+export interface ResultRow {
+  node: ScenarioNode;
+  /** 0 = directly under the scenario. */
+  depth: number;
+  scenarioId: string;
+  /** The project's OS this element applies to, in the project's order. */
+  oses: OS[];
+  results: Partial<Record<OS, ElementResult>>;
+  states: Partial<Record<OS, ElementState>>;
+  /** Across its OS: failed if any failed; passed only if all passed; pending while some was never run. */
+  status: ElementState;
+  /** Where it happens: the screen the scenario planned, else the one that was actually observed. */
+  screen?: { id: string; name: string };
+}
+export interface Totals {
+  total: number;
+  passed: number;
+  failed: number;
+  /** Everything that is not passed or failed yet. */
+  remaining: number;
+  /** passed / total, 0-100: what is known to work. */
+  rate: number;
+  /** (passed + failed) / total, 0-100: how much was looked at. */
+  tested: number;
+}
+export interface ScenarioResults {
+  scenario: ScenarioNode;
+  module?: string;
+  rows: ResultRow[];
+  totals: Totals;
+  /** passed = everything passed; failed = anything failed; pending = nothing run yet; partial = in between. */
+  status: 'passed' | 'failed' | 'partial' | 'pending';
+}
+export interface CampaignResults {
+  scenarios: ScenarioResults[];
+  totals: Totals;
+  /** Success rate per OS configured in the project (never the OS ticked in the title bar). */
+  byOs: Partial<Record<OS, Totals>>;
+}
+const totalsOf = (states: ElementState[]): Totals => {
+  const total = states.length;
+  const passed = states.filter((s) => s === 'passed').length;
+  const failed = states.filter((s) => s === 'failed').length;
+  return {
+    total,
+    passed,
+    failed,
+    remaining: total - passed - failed,
+    rate: total ? Math.round((passed / total) * 100) : 0,
+    tested: total ? Math.round(((passed + failed) / total) * 100) : 0,
+  };
+};
+const aggregate = (states: ElementState[]): ElementState =>
+  !states.length
+    ? 'pending'
+    : states.includes('failed')
+      ? 'failed'
+      : states.includes('running')
+        ? 'running'
+        : states.every((s) => s === 'passed')
+          ? 'passed'
+          : states.includes('pending')
+            ? 'pending'
+            : 'other';
+
+/**
+ * Every element of every scenario of the project with its last result, per OS of the PROJECT. One row per element:
+ * the number of rows is the number of elements, however many times the campaign was run.
+ */
+export function buildResults(
+  project: Pick<Project, 'nodes' | 'platforms'>,
+  detail: CampaignDetail | null,
+  latest: Map<string, ElementResult> = latestResults(detail),
+): CampaignResults {
+  const scenarios: ScenarioResults[] = [];
+  for (const root of project.nodes.filter((n) => !isSupportScenario(n))) {
+    // The screen each element happens on, following the scenario's own navigations.
+    let current = root.startScreen
+      ? { id: root.startScreen.id, name: root.startScreen.name }
+      : undefined;
+    const rows: ResultRow[] = [];
+    const walk = (nodes: ScenarioNode[], depth: number) => {
+      for (const node of nodes) {
+        if (node.kind === 'scenario') continue;
+        if (node.kind === 'navigation' && node.screen)
+          current = { id: node.screen.id, name: node.screen.name };
+        const oses = applicableOs(node, project.platforms);
+        const results: ResultRow['results'] = {};
+        const states: ResultRow['states'] = {};
+        for (const os of oses) {
+          const r = latest.get(os + ':' + node.id);
+          if (r) results[os] = r;
+          states[os] = stateOf(r);
+        }
+        const observed = oses
+          .map((os) => results[os]?.entry)
+          .filter((e): e is RunEntry => !!e)
+          .map((e) =>
+            node.kind === 'navigation'
+              ? (e.screenAfter ?? e.screenBefore)
+              : (e.screenBefore ?? e.screenAfter),
+          )
+          .find((r) => r?.identified);
+        rows.push({
+          node,
+          depth,
+          scenarioId: root.id,
+          oses,
+          results,
+          states,
+          status: aggregate(oses.map((os) => states[os]!)),
+          screen: current ?? (observed ? { id: observed.id, name: observed.name } : undefined),
+        });
+        walk(node.children, depth + 1);
+      }
+    };
+    walk(root.children, 0);
+    const statuses = rows.map((r) => r.status);
+    scenarios.push({
+      scenario: root,
+      module: root.module,
+      rows,
+      totals: totalsOf(statuses),
+      status: !rows.length
+        ? 'pending'
+        : statuses.includes('failed')
+          ? 'failed'
+          : statuses.every((s) => s === 'passed')
+            ? 'passed'
+            : rows.every((r) => !Object.keys(r.results).length)
+              ? 'pending'
+              : 'partial',
+    });
+  }
+  const all = scenarios.flatMap((s) => s.rows);
+  const byOs: CampaignResults['byOs'] = {};
+  for (const os of project.platforms) {
+    const states = all.filter((r) => r.oses.includes(os)).map((r) => r.states[os]!);
+    byOs[os] = totalsOf(states);
+  }
+  return { scenarios, totals: totalsOf(all.map((r) => r.status)), byOs };
+}
+
+export type ScreenStatus2 = 'passed' | 'failed' | 'partial' | 'untested' | 'none';
+export interface ScreenItem {
+  id: string;
+  name: string;
+  /** The module of the scenarios that go through this screen (« » when none says). */
+  module: string;
+  /** Every element on this screen / only its checks. */
+  elements: ResultRow[];
+  tests: ResultRow[];
+  status: ScreenStatus2;
+  /** What the checks say, per OS of the project (`none`: this OS has no check on this screen). */
+  byOs: Partial<Record<OS, ScreenStatus2>>;
+  /** Most recent capture taken on this screen, per OS. */
+  captures: Partial<Record<OS, ElementResult>>;
+}
+/**
+ * The screens of the application as the scenarios know them, with whether they work: a screen passes when every check
+ * linked to it passed. A screen without a check is listed as such rather than called valid.
+ */
+export function screenInventory(
+  results: ScenarioResults[],
+  platforms: readonly OS[],
+): ScreenItem[] {
+  const screens = new Map<string, { name: string; rows: ResultRow[]; modules: string[] }>();
+  for (const sc of results) {
+    // Where a scenario starts is a screen of the application even before any element happens on it.
+    const start = sc.scenario.startScreen;
+    if (start) {
+      const known = screens.get(start.id) ?? { name: start.name, rows: [], modules: [] };
+      if (sc.module) known.modules.push(sc.module);
+      screens.set(start.id, known);
+    }
+    for (const row of sc.rows) {
+      if (!row.screen) continue;
+      const s = screens.get(row.screen.id) ?? { name: row.screen.name, rows: [], modules: [] };
+      s.rows.push(row);
+      if (sc.module) s.modules.push(sc.module);
+      screens.set(row.screen.id, s);
+    }
+  }
+  return [...screens].map(([id, s]) => {
+    const tests = s.rows.filter((r) => r.node.kind === 'test');
+    const verdict = (rows: ResultRow[], os: OS): ScreenStatus2 => {
+      const states = rows.filter((r) => r.oses.includes(os)).map((r) => r.states[os]!);
+      if (!states.length) return 'none';
+      if (states.includes('failed')) return 'failed';
+      if (states.every((x) => x === 'passed')) return 'passed';
+      return states.includes('passed') ? 'partial' : 'untested';
+    };
+    const byOs: ScreenItem['byOs'] = {};
+    for (const os of platforms) byOs[os] = verdict(tests, os);
+    const known = platforms.map((os) => byOs[os]!).filter((v) => v !== 'none');
+    const status: ScreenStatus2 = !tests.length
+      ? 'none'
+      : known.includes('failed')
+        ? 'failed'
+        : known.every((v) => v === 'passed')
+          ? 'passed'
+          : known.some((v) => v === 'passed' || v === 'partial')
+            ? 'partial'
+            : 'untested';
+    const captures: ScreenItem['captures'] = {};
+    for (const row of s.rows)
+      for (const os of row.oses) {
+        const r = row.results[os];
+        if (!r?.entry.screenshot) continue;
+        const best = captures[os];
+        if (!best || (r.entry.completedAt ?? '') > (best.entry.completedAt ?? '')) captures[os] = r;
+      }
+    // The module most scenarios of this screen declare.
+    const count = new Map<string, number>();
+    for (const m of s.modules) count.set(m, (count.get(m) ?? 0) + 1);
+    const module = [...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+    return { id, name: s.name, module, elements: s.rows, tests, status, byOs, captures };
+  });
+}

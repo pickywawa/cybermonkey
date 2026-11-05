@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activeOs, migrateProject } from '../src/shared/domain/project.js';
+import { activeOs, parseProject } from '../src/shared/domain/project.js';
 import {
   appendChildren,
   applicableOs,
@@ -15,27 +15,22 @@ import { makeVariant } from '../src/shared/domain/scenario.js';
 import { autoSelectDevices, type Device } from '../src/shared/domain/devices.js';
 import { classifyError } from '../src/shared/errors.js';
 
-test('flutter projects become android + ios and legacy kinds are migrated', () => {
-  const project = migrateProject({
+test('a project file is read as it is: sessions are filled in, older formats are refused', () => {
+  const project = parseProject({
     id: 'p',
-    name: 'Legacy',
+    name: 'Atlas',
     directory: '/x',
-    platforms: ['flutter'],
+    platforms: ['android', 'ios'],
     createdAt: new Date().toISOString(),
-    tab: 'variables',
-    nodes: [
-      {
-        id: 'r',
-        name: 'Root',
-        kind: 'folder',
-        children: [{ id: 'c', name: 'Check', kind: 'assertion', children: [] }],
-      },
-    ],
+    nodes: [],
   });
   assert.deepEqual(project.platforms, ['android', 'ios']);
-  assert.equal(project.tab, 'creation');
-  assert.equal(project.nodes[0].kind, 'scenario');
-  assert.equal(project.nodes[0].children[0].kind, 'test');
+  assert.equal(project.chatSessions.length, 1);
+  assert.equal(project.activeChatSessionId, project.chatSessions[0].id);
+  // Folders and assertions belong to a format that is no longer read.
+  assert.throws(() =>
+    parseProject({ id: 'p', name: 'Old', directory: '/x', platforms: ['flutter'], nodes: [] }),
+  );
 });
 
 test('focus limits the active operating systems', () => {

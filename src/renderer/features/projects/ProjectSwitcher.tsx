@@ -66,14 +66,6 @@ export function ProjectSwitcher() {
               <Pencil size={13} /> {t('proj.edit')}
             </button>
             <button
-              onClick={() => {
-                close();
-                void call('projects.importLegacy').then(() => actions.refreshWorkspace());
-              }}
-            >
-              <Upload size={13} /> {t('proj.importLegacy')}
-            </button>
-            <button
               disabled={!project}
               onClick={() => {
                 close();

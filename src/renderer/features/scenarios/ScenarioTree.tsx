@@ -11,13 +11,14 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Search,
   GitBranch,
   Repeat,
   Workflow,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { latestOutcomes } from '../../../shared/domain/campaign';
+import { useEffect, useMemo, useState } from 'react';
 import {
   applicableOs,
   appendChildren,
@@ -26,6 +27,7 @@ import {
   insertAfter,
   makeNode,
   moveNode,
+  nodePath,
   removeNode,
   type NodeKind,
   type OS,
@@ -34,6 +36,8 @@ import {
 import { useT } from '../../shared/i18n';
 import { IconButton } from '../../shared/ui/controls';
 import { PlatformIcon } from '../../shared/ui/icons';
+import { useExec } from '../execution/focus';
+import { OsMark } from '../execution/OsMark';
 import { Menu } from '../../shared/ui/overlays';
 import { useActions, useApp } from '../../app/store';
 
@@ -53,11 +57,40 @@ export function ScenarioTree({
   onRun?: (nodeId: string) => void;
 }) {
   const t = useT();
-  const { project, projectOs, detail } = useApp();
+  const { project, projectOs, settings } = useApp();
   const actions = useActions();
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const exec = useExec();
+  const { collapsed } = exec;
   const [query, setQuery] = useState('');
-  const outcomes = useMemo(() => latestOutcomes(detail), [detail]);
+  const [pulse, setPulse] = useState<string | null>(null);
+  // Results of every element and the totals of every scenario, from the same source as the results list.
+  const rowOf = useMemo(
+    () => new Map(exec.results.scenarios.flatMap((s) => s.rows).map((r) => [r.node.id, r])),
+    [exec.results],
+  );
+  const scenarioOf = useMemo(
+    () => new Map(exec.results.scenarios.map((s) => [s.scenario.id, s])),
+    [exec.results],
+  );
+
+  // « Show me this element » coming from the results: unfold the way down to it and scroll to it.
+  useEffect(() => {
+    const { nodeId, from } = exec.focus;
+    if (mode !== 'execution' || !project || !nodeId || from === 'tree') return;
+    const ancestors = nodePath(project.nodes, nodeId)
+      .slice(0, -1)
+      .map((n) => n.id);
+    if (ancestors.length) exec.setCollapsed(ancestors, false);
+    setPulse(nodeId);
+    const timer = setTimeout(() => setPulse(null), 1500);
+    const frame = requestAnimationFrame(() =>
+      document
+        .getElementById('tree-' + nodeId)
+        ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }),
+    );
+    return () => (clearTimeout(timer), cancelAnimationFrame(frame));
+  }, [exec.focus.n]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!project) return null;
   const roots = project.nodes.filter((n) => !n.preparation && !n.handler);
   const prep = project.nodes.filter((n) => n.preparation);
@@ -77,12 +110,7 @@ export function ScenarioTree({
       parent ? appendChildren(project.nodes, parent.id, [node]) : [...project.nodes, node],
       node.id,
     );
-    if (parent)
-      setCollapsed((s) => {
-        const n = new Set(s);
-        n.delete(parent.id);
-        return n;
-      });
+    if (parent) exec.setCollapsed([parent.id], false);
   };
   const duplicate = (n: ScenarioNode) => {
     const copy = { ...cloneWithNewIds(n), name: n.name + ' ' + t('tree.copy') };
@@ -100,24 +128,29 @@ export function ScenarioTree({
       n.kind !== 'scenario'
         ? applicableOs(n, project.platforms).filter((os) => !n.variants[os])
         : [];
-    const status = (os: OS) => (n.kind === 'scenario' ? undefined : outcomes.get(os + ':' + n.id));
+    const row = rowOf.get(n.id);
+    const sc = scenarioOf.get(n.id);
     return (
       <div key={n.id}>
         <div
-          className={`tree-row ${project.selectedNodeId === n.id ? 'sel' : ''} k-${n.kind}`}
+          id={'tree-' + n.id}
+          className={`tree-row ${project.selectedNodeId === n.id ? 'sel' : ''} ${pulse === n.id ? 'pulse' : ''} k-${n.kind}`}
           style={{ paddingLeft: 8 + depth * 14 }}
-          onClick={() => void actions.updateProject({ selectedNodeId: n.id })}
+          onClick={() => {
+            void actions.updateProject({ selectedNodeId: n.id });
+            // In execution mode a click also shows the element's result, whichever tab was open.
+            if (mode === 'execution' && (row || sc)) {
+              exec.setView('results');
+              exec.reveal(n.id, 'tree');
+            }
+          }}
         >
           {n.children.length ? (
             <button
               className="twisty"
               onClick={(e) => {
                 e.stopPropagation();
-                setCollapsed((s) => {
-                  const c = new Set(s);
-                  c.has(n.id) ? c.delete(n.id) : c.add(n.id);
-                  return c;
-                });
+                exec.toggle(n.id);
               }}
             >
               {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -159,19 +192,23 @@ export function ScenarioTree({
               ))}
             </span>
           )}
-          {mode === 'execution' && n.kind !== 'scenario' && (
-            <span className="results">
-              {projectOs.map((os) =>
-                n.platforms && !n.platforms.includes(os) ? null : (
-                  <span
-                    key={os}
-                    className={`rs ${status(os) ?? ''}`}
-                    title={`${os}: ${status(os) ?? t('tree.notRun')}`}
-                  >
-                    <PlatformIcon os={os} size={10} />
-                  </span>
-                ),
-              )}
+          {mode === 'execution' && row && (
+            <span className="os-marks">
+              {row.oses.map((os) => (
+                <OsMark
+                  key={os}
+                  os={os}
+                  state={row.states[os]!}
+                  size={11}
+                  language={settings?.language}
+                />
+              ))}
+            </span>
+          )}
+          {mode === 'execution' && sc && sc.rows.length > 0 && (
+            <span className={`group-count ${sc.status}`} title={t('exec.scenarioCount')}>
+              {sc.totals.passed}/{sc.totals.total}
+              {sc.totals.failed > 0 && <em> · {sc.totals.failed} ✗</em>}
             </span>
           )}
           <span className="row-actions" onClick={(e) => e.stopPropagation()}>
@@ -260,6 +297,14 @@ export function ScenarioTree({
         {mode === 'creation' && (
           <IconButton label={t('tree.addScenario')} onClick={() => add(null, 'scenario')}>
             <Plus size={15} />
+          </IconButton>
+        )}
+        {mode === 'execution' && (
+          <IconButton
+            label={exec.passedFolded ? t('exec.expandPassed') : t('exec.collapsePassed')}
+            onClick={exec.foldPassed}
+          >
+            {exec.passedFolded ? <ChevronsUpDown size={15} /> : <ChevronsDownUp size={15} />}
           </IconButton>
         )}
         {mode === 'execution' && onRun && (

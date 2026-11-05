@@ -17,7 +17,7 @@ Cybermonkey succède à Cyberfox, reconstruit sur une architecture plus claire (
 
 - **Créer** : décrire un parcours (Claude Code, Codex ou GitHub Copilot explorent vos appareils, puis une **synthèse** est à valider avant toute écriture) ; **enregistrer en naviguant sur le téléphone** ; **construire à la main** en cliquant les composants du miroir ; **importer des cas de test** (Squash TM, TestRail, Azure Test Plans, Gherkin, CSV, JSON, Markdown) et les faire automatiser par l’IA.
 - **Exécuter** : campagnes avec résultats par OS, **lancement sans fenêtre pour la CI/CD** (code de sortie, JUnit, installation du build), captures à chaque étape, **réparation automatique des sélecteurs** (jamais sur les vérifications), **analyse structurée** des échecs, préparation de l’écran de départ. Travaillez sur **Android + iOS ou un seul OS à la fois** ; une étape propre à un OS est « non applicable » sur l’autre, un trou n’est jamais un échec.
-- **Comprendre** : avancement par OS et par scénario, **cartographie** des écrans prévus et testés avec résultats Android/iOS, exports **texte, CSV, Markdown, Confluence, HTML, JUnit, JSON**.
+- **Comprendre** : avancement en éléments selon le **dernier résultat** de chacun, par OS du projet, résultats reliés à l’arbre des scénarios, **cartographie** des écrans par module avec leur réussite et leur capture, exports **texte, CSV, Markdown, Confluence, HTML, JUnit, JSON**.
 - **Configurer sans douleur** : diagnostic détaillé de chaque appareil (cause + correctif + commande à copier), diagnostic par l’IA, erreurs expliquées.
 - Fenêtres **Appareils** et **IA** détachables, détection automatique des appareils, détection de l’application à tester, mises à jour automatiques, 7 thèmes, français et anglais, variables de projet (créées à la volée par l’IA).
 
@@ -116,9 +116,5 @@ npm run dev:web    # aperçu navigateur avec données de démonstration
 npm run typecheck && npm test
 npm run build
 ```
-
-## Migration depuis Cyberfox
-
-**Fichier → Importer un projet Cyberfox…** : le dossier du projet est repris tel quel (scénarios, campagnes, captures). Les projets « Flutter » deviennent Android + iOS.
 
 MIT · © 2026 pickywawa

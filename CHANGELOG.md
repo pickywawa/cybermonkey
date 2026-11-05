@@ -1,3 +1,16 @@
+# Cybermonkey (à venir)
+
+**Vue Exécution refaite de zéro** : on voit où en sont les tests, pas l'historique des exécutions.
+
+- **Un élément, un résultat** : l'avancement et la liste comptent les **éléments des scénarios** selon leur **dernier résultat**. Relancer un test remplace son résultat ; un élément n'est jamais compté deux fois. Les exécutions précédentes restent sur disque (stabilité, régressions, comparaison visuelle) mais ne sont plus listées.
+- **Barre d'avancement au-dessus des onglets** : % de réussite, réussis / en échec / à tester, et le taux de réussite de **chaque OS du projet** (plus de celui coché dans la barre du haut).
+- **Onglets Résultats et Cartographie** (l'onglet Progression, la frise des étapes et le sélecteur d'exécution disparaissent). Les filtres sont des cases à cocher dans une liste déroulante.
+- **Résultats** : une ligne par élément, des séparateurs par scénario et de légers séparateurs à chaque changement d'écran ; chaque ligne se déplie avec tout le détail par OS (message, vidéo, journal, comparaison visuelle, analyse IA, réparation de sélecteur, stabilité, durées).
+- **Arbre des scénarios relié aux résultats, dans les deux sens** : cliquer un élément affiche son résultat (défilement automatique, surbrillance), cliquer un résultat le sélectionne dans l'arbre ; replier un scénario d'un côté le replie de l'autre. Bouton pour replier d'un coup les scénarios réussis. Les icônes d'OS sont blanches, seul un point de couleur dit si le test a réussi.
+- **Cartographie** : la liste des **écrans** avec leur nom, leur statut d'après les tests liés (validé, en échec, partiel, à tester, sans test) et leurs dernières captures, groupés par **module**. Le module est un nouveau champ des scénarios, renseigné par l'IA à la création (et modifiable dans l'éditeur) ; l'IA reçoit les modules existants pour les réutiliser.
+- **Campagnes** : barre plus basse (même hauteur que celle des appareils), « Nouvelle campagne » dans le menu, bouton Exporter à droite du titre.
+- **Supprimé** : l'import de projets Cyberfox, et la conversion des anciens formats de projet (seul le format actuel est lu). Le profil des pas les plus lents n'est plus un écran : la durée de chaque résultat est dans son détail, et l'outil MCP `slowest_steps` reste.
+
 # Cybermonkey 1.3.0
 
 **Cybermonkey se branche sur votre chaîne de livraison et sur vos outils** : ligne de commande pour la CI/CD, intégrations (Git, messagerie, outils de test, tickets) et appareils distants (réseau, clouds).

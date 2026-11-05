@@ -73,16 +73,16 @@ const tabs = [
     'progression',
     t('Suivre', 'Track'),
     b(
-      'Avancement par OS et par scénario, résultats de la dernière tentative, chronologie rejouable avec les captures.',
-      'Progress per OS and per scenario, latest-attempt results, a scrubbable timeline with captures.',
+      'Avancement en éléments selon le dernier résultat de chacun, par OS du projet ; la liste des résultats est reliée à l’arbre des scénarios.',
+      'Progress in elements by the last result of each, per OS of the project; the results list is linked to the scenario tree.',
     ),
   ],
   [
     'cartographie',
     t('Comprendre', 'Understand'),
     b(
-      'Les écrans testés, leurs captures et les résultats Android/iOS, reliés par les transitions observées.',
-      'Tested screens, their captures and Android/iOS results, linked by the transitions observed.',
+      'La liste des écrans par module : leur nom, s’ils réussissent d’après les tests liés, et une capture.',
+      'The list of screens by module: their name, whether they pass according to their linked tests, and a capture.',
     ),
   ],
   [
@@ -150,7 +150,6 @@ ${tabs.map(([id, , cap], i) => `<p class="caption" data-caption="${id}"${i ? ' h
 <div class="sec-head"><h2>FAQ</h2></div>
 <details><summary>${t('Faut-il un compte Cybermonkey ?', 'Do I need a Cybermonkey account?')}</summary><p>${t('Non. L’IA utilise votre propre abonnement Claude Code, Codex ou GitHub Copilot, connecté depuis Paramètres → IA.', 'No. The AI uses your own Claude Code, Codex or GitHub Copilot subscription, signed in from Settings → AI.')}</p></details>
 <details><summary>${t('Où sont mes données ?', 'Where is my data?')}</summary><p>${t('Sur votre machine : projets, variables, captures et rapports. Seul le contexte utile (écrans, demande) est envoyé au fournisseur d’IA choisi. Les variables ne sont pas un coffre-fort chiffré.', 'On your machine: projects, variables, captures and reports. Only the useful context (screens, request) is sent to the chosen AI provider. Variables are not an encrypted vault.')}</p></details>
-<details><summary>${t('Puis-je migrer depuis Cyberfox ?', 'Can I migrate from Cyberfox?')}</summary><p>${t('Oui : Fichier → Importer un projet Cyberfox. Scénarios, campagnes et captures sont repris ; les projets Flutter deviennent Android + iOS.', 'Yes: File → Import a Cyberfox project. Scenarios, campaigns and captures are kept; Flutter projects become Android + iOS.')}</p></details>
 <details><summary>${t('Que faire si la page à tester est une vue web ?', 'What if the screen under test is a web view?')}</summary><p>${t('Quand son contenu n’est pas lisible par l’accessibilité, l’IA reçoit la capture avec une grille et désigne les champs par cellule ; la position est stockée en pourcentage de l’écran. Voir « Fonctionnement ».', 'When its content is not readable by accessibility, the AI gets the screenshot with a grid and designates fields by cell; the position is stored as a percentage of the screen. See “How it works”.')}</p></details>
 <p style="margin-top:22px"><a class="btn" href="aide.html">${t('Toute l’aide →', 'Full help →')}</a></p>
 </div></section>`;
@@ -225,7 +224,7 @@ ${P('Une <b>campagne</b> regroupe des exécutions, leurs captures et leur rappor
 </ul>
 <h2 id="comprendre">${t('Suivi et cartographie', 'Tracking and map')}</h2>
 ${shot('resultats', 'Résultats détaillés')}
-${P('<b>Progression</b> : pour chaque OS et chaque scénario, le dernier résultat de chaque étape (une relance ne gonfle jamais l’avancement). <b>Résultats</b> : table filtrable (échecs, réparés par l’IA…), détail, capture dans le miroir. <b>Chronologie</b> : une frise cliquable ou lue automatiquement, pendant que les tests continuent. <b>Cartographie</b> : un graphe des écrans prévus (depuis vos navigations) et observés, avec miniature, résultats Android/iOS et statut (validé, en échec, partiel, à tester).', '<b>Progress</b>: for each OS and scenario, the latest result of each step (a retry never inflates progress). <b>Results</b>: filterable table (failures, AI-repaired…), detail, capture in the mirror. <b>Timeline</b>: a clickable strip, or autoplay, while tests keep running. <b>Map</b>: a graph of planned (from your navigations) and observed screens with thumbnail, Android/iOS results and status (validated, failing, partial, to test).')}
+${P('<b>En haut</b> : l’avancement de la campagne, en <b>éléments</b> de vos scénarios selon le <b>dernier résultat</b> de chacun (réussis, en échec, à tester), avec le taux de réussite de chaque OS du projet. Relancer un test remplace son résultat : on ne compte jamais deux fois un élément. <b>Résultats</b> : une ligne par élément, groupée par scénario (séparateurs légers à chaque changement d’écran), qui se déplie pour tout montrer (message, vidéo, journal de l’appareil, comparaison visuelle, analyse IA, réparation de sélecteur). Cliquer un élément dans l’arbre des scénarios à gauche l’affiche dans les résultats, et inversement, avec défilement automatique ; replier un scénario à un endroit le replie à l’autre. <b>Cartographie</b> : la liste des <b>écrans</b> par <b>module</b> (renseigné par l’IA sur chaque scénario), avec leur statut d’après les tests liés (validé, en échec, partiel, à tester, sans test) et leurs dernières captures.', '<b>On top</b>: the campaign progress, in <b>elements</b> of your scenarios by the <b>last result</b> of each (passed, failed, to test), with the success rate of each OS of the project. Running a test again replaces its result: an element is never counted twice. <b>Results</b>: one row per element, grouped by scenario (light separators at each screen change), unfolding to show everything (message, video, device log, visual comparison, AI analysis, selector repair). Clicking an element in the scenario tree on the left shows it in the results, and the other way round, with automatic scrolling; folding a scenario in one place folds it in the other. <b>Map</b>: the list of <b>screens</b> by <b>module</b> (filled in by the AI on each scenario), with their status from the linked tests (valid, failing, partial, to test, no test) and their latest captures.')}
 ${shot('cartographie', 'Cartographie des écrans')}
 <table><tr><th>${t('Format', 'Format')}</th><th>${t('Usage', 'Use')}</th></tr>
 <tr><td>${t('Texte, Markdown, Confluence', 'Text, Markdown, Confluence')}</td><td>${t('Coller dans une page de rapport (sans images).', 'Paste in a report page (no images).')}</td></tr>
@@ -395,7 +394,7 @@ ${P('<b>Garde-fous</b> : jamais d’imprévu dans un gestionnaire ; au plus 3 to
 <li>${b('Android et iOS sont pilotés <b>en parallèle</b> : la durée est celle de l’OS le plus lent, pas la somme.', 'Android and iOS are driven <b>in parallel</b>: the duration is that of the slowest OS, not the sum.')}</li>
 <li>${b('<b>Attentes sur condition</b> : détection de changement d’écran en quelques requêtes légères, nouvel essai immédiat puis espacé, attente du clavier plutôt qu’un délai fixe.', '<b>Condition-based waits</b>: screen-change detection in a few light requests, immediate then spaced retries, waiting for the keyboard rather than a fixed delay.')}</li>
 <li>${b('<b>Raccourci par lien profond</b> : un écran de départ peut porter un lien (par OS). Il est essayé <i>avant</i> de relancer l’app et de rejouer un parcours ; s’il n’atterrit pas au bon endroit, le chemin sûr reprend.', '<b>Deep-link shortcut</b>: a start screen can carry a link (per OS). It is tried <i>before</i> relaunching the app and replaying a route; if it does not land in the right place, the safe path takes over.')}</li>
-<li>${b('<b>Profil de durée</b> : Progression liste les pas les plus lents et la part du temps passée en preuves plutôt qu’à agir ; l’outil MCP <code>slowest_steps</code> y ajoute des suggestions. Le niveau de preuves (tout, écrans clés, échecs) se règle.', '<b>Duration profile</b>: Progress lists the slowest steps and the share of time spent on evidence rather than acting; the MCP tool <code>slowest_steps</code> adds suggestions. The evidence level (all, key screens, failures) is adjustable.')}</li>
+<li>${b('<b>Profil de durée</b> : le détail de chaque résultat donne sa durée et la part passée en preuves plutôt qu’à agir ; l’outil MCP <code>slowest_steps</code> y ajoute des suggestions. Le niveau de preuves (tout, écrans clés, échecs) se règle.', '<b>Duration profile</b>: each result’s detail gives its duration and the share spent on evidence rather than acting; the MCP tool <code>slowest_steps</code> adds suggestions. The evidence level (all, key screens, failures) is adjustable.')}</li>
 </ul>
 
 <h2 id="ci">${t('CI/CD : lancer sans fenêtre', 'CI/CD: run without a window')}</h2>

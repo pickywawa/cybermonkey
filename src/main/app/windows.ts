@@ -163,10 +163,6 @@ export class WindowManager {
               enabled: !!store?.state.activeProjectId,
               click: () => this.send('edit-project'),
             },
-            {
-              label: fr ? 'Importer un projet Cyberfox…' : 'Import a Cyberfox project…',
-              click: () => this.send('import-legacy'),
-            },
             { type: 'separator' as const },
             {
               label: fr ? 'Paramètres…' : 'Settings…',

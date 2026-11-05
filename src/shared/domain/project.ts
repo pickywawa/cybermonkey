@@ -107,37 +107,19 @@ export function activeOs(p: Pick<Project, 'platforms' | 'focus'>): OS[] {
   return p.focus !== 'all' && p.platforms.includes(p.focus) ? [p.focus] : [...p.platforms];
 }
 
-/** Accepts Cyberfox (legacy) and current project files. Flutter targets become Android + iOS. */
-export function migrateProject(raw: any): Project {
-  const legacyPlatforms: string[] = Array.isArray(raw.platforms) ? raw.platforms : OS_LIST.slice();
-  const platforms = [
-    ...new Set(legacyPlatforms.flatMap((p) => (p === 'flutter' ? ['android', 'ios'] : [p]))),
-  ].filter((p): p is OS => p === 'android' || p === 'ios');
-  const convert = (nodes: any[], root: boolean): any[] =>
-    nodes.map((n) => ({
-      ...n,
-      kind: root
-        ? 'scenario'
-        : n.kind === 'folder'
-          ? 'navigation'
-          : n.kind === 'assertion'
-            ? 'test'
-            : n.kind,
-      children: convert(n.children ?? [], false),
-    }));
+/** Reads a project file. Only the current format is understood: older files are refused, not converted. */
+export function parseProject(raw: any): Project {
   const sessions: ChatSession[] = raw.chatSessions?.length
     ? raw.chatSessions
     : [
         {
-          id: 'legacy-session',
+          id: 'session-1',
           name: 'Session 1',
           createdAt: raw.createdAt ?? new Date().toISOString(),
         },
       ];
   const project = projectSchema.parse({
     ...raw,
-    platforms: platforms.length ? platforms : OS_LIST.slice(),
-    tab: raw.tab === 'execution' ? 'execution' : 'creation',
     chatSessions: sessions,
     activeChatSessionId: sessions.some((s) => s.id === raw.activeChatSessionId)
       ? raw.activeChatSessionId
@@ -146,7 +128,6 @@ export function migrateProject(raw: any): Project {
       ...m,
       sessionId: m.sessionId ?? sessions[0].id,
     })),
-    nodes: convert(raw.nodes ?? [], true),
   });
   validateTree(project.nodes);
   return project as Project;

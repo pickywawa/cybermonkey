@@ -3,7 +3,7 @@ import path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
   activeOs,
-  migrateProject,
+  parseProject,
   normalizeEnvironments,
   projectInput,
   projectSchema,
@@ -18,7 +18,6 @@ import type { Workspace } from '../../../shared/ipc.js';
 import { Queue, readJson, writeJson } from './atomic.js';
 
 const PROJECT_FILE = 'cybermonkey.project.json';
-const LEGACY_FILE = 'cyberfox.project.json';
 export type ProjectPatch = ProjectUpdate & { messages?: Message[] };
 
 /** Settings + project index (workspace.json) and one JSON file per project directory. */
@@ -43,7 +42,7 @@ export class WorkspaceStore {
       for (const entry of raw.projects ?? []) {
         try {
           const file = path.join(entry.directory, PROJECT_FILE);
-          const project = migrateProject(await readJson(file));
+          const project = parseProject(await readJson(file));
           this.state.projects.push({ ...project, directory: entry.directory });
         } catch (error) {
           console.warn('Project unavailable:', entry.directory, String(error));
@@ -140,26 +139,6 @@ export class WorkspaceStore {
       throw e;
     }
     return project;
-  }
-  /** Import a Cyberfox project directory (flutter becomes android + ios). */
-  importLegacy(directory: string) {
-    return this.queue.run(async () => {
-      let raw: any;
-      for (const file of [PROJECT_FILE, LEGACY_FILE])
-        try {
-          raw = await readJson(path.join(directory, file));
-          break;
-        } catch {
-          /* try next */
-        }
-      if (!raw) throw new Error('Aucun fichier projet Cyberfox / Cybermonkey dans ce dossier.');
-      const project = migrateProject(raw);
-      if (this.state.projects.some((p) => p.id === project.id))
-        throw new Error('Ce projet est déjà dans l’espace de travail.');
-      // Keep the original folder: scenarios, campaigns and captures stay where they are.
-      project.directory = directory;
-      return this.register(project);
-    });
   }
   remove(id: string) {
     return this.queue.run(async () => {

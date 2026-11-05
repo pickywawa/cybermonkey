@@ -79,6 +79,7 @@ export function outline(
       ...(n.tags.length ? { tags: n.tags } : {}),
       ...(n.platforms ? { only_on: n.platforms } : {}),
       ...(n.source ? { source: `${n.source.tool}:${n.source.id}` } : {}),
+      ...(n.module ? { module: n.module } : {}),
       ...(n.screen ? { goes_to_screen: n.screen.name } : {}),
       ...(n.startScreen ? { start_screen: n.startScreen.name } : {}),
       ...(n.preconditionId ? { precondition: n.preconditionId } : {}),

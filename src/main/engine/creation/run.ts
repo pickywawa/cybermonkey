@@ -383,7 +383,13 @@ export class CreationRun {
     const settings = this.settings;
     const project = this.project;
     const metadata = {
-      project: { name: project.name, platforms: project.platforms, tags: project.tags },
+      project: {
+        name: project.name,
+        platforms: project.platforms,
+        tags: project.tags,
+        // The modules scenarios already belong to: new scenarios reuse these names.
+        modules: [...new Set(project.nodes.map((n) => n.module).filter((m): m is string => !!m))],
+      },
       currentPath: path.map(({ id, name, kind }) => ({ id, name, kind })),
       parentId: this.input.nodeId ?? null,
       outline: this.outline(project.nodes),

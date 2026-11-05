@@ -149,6 +149,8 @@ export interface ScenarioNode {
   /** Operating systems this step applies to. Absent = every platform of the project. */
   platforms?: OS[];
   preparation?: boolean;
+  /** Scenario only: the functional area it belongs to (« Compte », « Panier »…), used to group screens and results. */
+  module?: string;
   startScreen?: ScreenDefinition;
   screen?: ScreenDefinition;
   source?: ExternalRef;
@@ -215,6 +217,7 @@ export const nodeSchema: z.ZodType<ScenarioNode> = z.lazy(() =>
     blocking: z.boolean().default(false),
     platforms: z.array(osSchema).max(2).optional(),
     preparation: z.boolean().optional(),
+    module: z.string().trim().min(1).max(80).optional(),
     startScreen: screenDefinitionSchema.optional(),
     screen: screenDefinitionSchema.optional(),
     source: externalRefSchema.optional(),
