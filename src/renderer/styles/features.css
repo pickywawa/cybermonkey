@@ -1,20 +1,17 @@
 /* ---------- sidebar ---------- */
 .project-switcher {
-  padding: 14px 12px 10px;
-  border-bottom: 1px solid var(--line);
-  display: grid;
-  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .proj-btn {
-  width: 100%;
-  justify-content: flex-start;
-  padding: 8px 10px;
-  border-radius: 10px;
-  gap: 10px;
+  max-width: 240px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  gap: 7px;
+  font-size: 13px;
 }
 .proj-btn b {
-  display: block;
-  font-size: 14px;
+  font-size: 13px;
 }
 .tree {
   flex: 1;

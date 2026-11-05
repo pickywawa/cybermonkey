@@ -72,7 +72,6 @@ export const en: Record<Key, string> = {
   'common.askAi': 'Ask the AI',
   'common.reattach': 'Reattach',
   'app.preview': 'Browser preview: device control and AI require the Electron app.',
-  'menu.file': 'File',
   'tab.creation': 'Creation',
   'tab.execution': 'Execution',
   'focus.label': 'Target systems',
@@ -85,7 +84,6 @@ export const en: Record<Key, string> = {
   'welcome.pick': 'Or pick an existing project from the File menu.',
   'ai.off': 'AI not connected',
 
-  'proj.current': 'Current project',
   'proj.none': 'No project',
   'proj.new': 'New project…',
   'proj.edit': 'Edit current project…',

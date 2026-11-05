@@ -76,7 +76,6 @@ export const fr = {
   'common.reattach': 'Réattacher',
   'app.preview':
     'Aperçu navigateur : le pilotage des appareils et l’IA nécessitent l’application Electron.',
-  'menu.file': 'Fichier',
   'tab.creation': 'Création',
   'tab.execution': 'Exécution',
   'focus.label': 'Systèmes ciblés',
@@ -89,7 +88,6 @@ export const fr = {
   'welcome.pick': 'Ou choisissez un projet existant dans le menu Fichier.',
   'ai.off': 'IA non connectée',
 
-  'proj.current': 'Projet courant',
   'proj.none': 'Aucun projet',
   'proj.new': 'Nouveau projet…',
   'proj.edit': 'Modifier le projet courant…',

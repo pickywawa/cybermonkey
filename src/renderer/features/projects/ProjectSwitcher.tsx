@@ -13,21 +13,15 @@ export function ProjectSwitcher() {
   const ui = useUi();
   return (
     <div className="project-switcher">
-      <div className="eyebrow">{t('proj.current')}</div>
       <Menu
         trigger={(toggle) => (
           <button className="proj-btn" onClick={toggle}>
-            <FolderOpen size={16} color="var(--accent)" />
-            <span className="grow ellipsis" style={{ textAlign: 'left' }}>
-              <b>{project?.name ?? t('proj.none')}</b>
-              <span className="row note" style={{ gap: 4 }}>
-                {project?.platforms.map((o) => (
-                  <PlatformIcon key={o} os={o} size={11} />
-                ))}
-                {project?.applicationDetails.android?.name ||
-                  project?.applicationDetails.ios?.name ||
-                  ''}
-              </span>
+            <FolderOpen size={14} color="var(--accent)" />
+            <b className="ellipsis">{project?.name ?? t('proj.none')}</b>
+            <span className="row" style={{ gap: 3 }}>
+              {project?.platforms.map((o) => (
+                <PlatformIcon key={o} os={o} size={11} plain />
+              ))}
             </span>
             <ChevronDown size={14} />
           </button>

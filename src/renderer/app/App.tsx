@@ -1,9 +1,8 @@
-import { ChevronDown, FileText, Settings2, Smartphone, Sparkles } from 'lucide-react';
+import { Settings2, Smartphone, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { call, appVersion, isDesktop } from '../shared/api';
 import { Button, IconButton, Segmented } from '../shared/ui/controls';
 import { Logo } from '../shared/ui/icons';
-import { Menu } from '../shared/ui/overlays';
 import { CreationPanel } from '../features/creation/CreationPanel';
 import { QuestionDialog } from '../features/creation/QuestionDialog';
 import { IntegrationConfirm } from '../features/settings/IntegrationConfirm';
@@ -133,44 +132,7 @@ function Shell() {
               </span>
               <span className="version">{appVersion}</span>
             </div>
-            <Menu
-              trigger={(toggle) => (
-                <Button size="sm" variant="ghost" icon={<FileText size={13} />} onClick={toggle}>
-                  {t('menu.file')} <ChevronDown size={11} />
-                </Button>
-              )}
-            >
-              {(close) => (
-                <>
-                  <button
-                    onClick={() => {
-                      close();
-                      ui.openProject('new');
-                    }}
-                  >
-                    {t('proj.new')}
-                  </button>
-                  <button
-                    disabled={!project}
-                    onClick={() => {
-                      close();
-                      ui.openProject('edit');
-                    }}
-                  >
-                    {t('proj.edit')}
-                  </button>
-                  <hr />
-                  <button
-                    onClick={() => {
-                      close();
-                      ui.openSettings();
-                    }}
-                  >
-                    {t('set.title')}
-                  </button>
-                </>
-              )}
-            </Menu>
+            <ProjectSwitcher />
             {project && (
               <div className="main-tabs">
                 <button
@@ -188,7 +150,7 @@ function Shell() {
                 </button>
               </div>
             )}
-            <span className="title-center">{project?.name}</span>
+            <span className="grow" />
             {project && project.platforms.length > 1 && (
               <Segmented
                 value={project.focus}
@@ -241,7 +203,6 @@ function Shell() {
           ) : (
             <div className="workspace">
               <aside className="sidebar" style={{ width: left.size ?? settings.leftWidth }}>
-                <ProjectSwitcher />
                 <ScenarioTree
                   mode={tab}
                   onRun={
