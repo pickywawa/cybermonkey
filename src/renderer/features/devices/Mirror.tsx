@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Component, Screen } from '../../../shared/domain/devices';
 import { call, onEvent } from '../../shared/api';
+import { useT } from '../../shared/i18n';
+import { Spinner } from '../../shared/ui/controls';
 
 export type Gesture =
   | { kind: 'tap'; x: number; y: number }
@@ -41,6 +43,14 @@ export function Mirror({
   const failures = useRef(0);
   const start = useRef<{ x: number; y: number } | null>(null);
   const [acting, setActing] = useState(false);
+  const [slow, setSlow] = useState(false);
+  const t = useT();
+  // A gesture that takes long is almost always the first one: the phone session is still opening.
+  useEffect(() => {
+    if (!acting) return setSlow(false);
+    const timer = setTimeout(() => setSlow(true), 700);
+    return () => clearTimeout(timer);
+  }, [acting]);
 
   useEffect(() => {
     if (!live || image) return;
@@ -122,6 +132,12 @@ export function Mirror({
   return (
     <div className={`mirror ${control && !image ? 'control' : ''} ${acting ? 'acting' : ''}`}>
       <img src={src} alt="" draggable={false} />
+      {acting && slow && (
+        <div className="mirror-busy">
+          <Spinner size={18} />
+          <span>{t('dev.connecting')}</span>
+        </div>
+      )}
       {control && !image && (
         <div
           className="control-layer"

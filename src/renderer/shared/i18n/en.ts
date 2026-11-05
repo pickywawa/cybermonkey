@@ -444,6 +444,7 @@ export const en: Record<Key, string> = {
   'dev.openWda': 'Open the WebDriverAgent project',
   'dev.healthFailing': '{n} item(s) to fix before the device is usable.',
   'dev.healthOk': 'Everything is ready for this device.',
+  'dev.connecting': 'Connecting to the device… the first start takes a moment',
   'dev.explore': 'Explore components',
   'dev.reexplore': 'Explore again',
   'dev.hideOverlay': 'Hide',

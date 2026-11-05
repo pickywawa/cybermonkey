@@ -453,6 +453,7 @@ export const fr = {
   'dev.openWda': 'Ouvrir le projet WebDriverAgent',
   'dev.healthFailing': '{n} point(s) à corriger avant que l’appareil soit utilisable.',
   'dev.healthOk': 'Tout est prêt pour cet appareil.',
+  'dev.connecting': 'Connexion à l’appareil… le premier démarrage prend un moment',
   'dev.explore': 'Explorer les composants',
   'dev.reexplore': 'Réexplorer',
   'dev.hideOverlay': 'Masquer',
