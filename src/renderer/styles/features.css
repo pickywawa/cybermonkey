@@ -971,21 +971,21 @@ input.inline:hover {
   min-width: 180px;
 }
 .res-group {
-  margin-bottom: 4px;
+  position: relative;
+  margin: 14px 0 4px;
+}
+.res-group:first-of-type {
+  margin-top: 0;
 }
 .res-scenario {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 14px;
   padding: 9px 12px;
   border-top: 2px solid color-mix(in srgb, var(--accent) 45%, var(--line));
   border-radius: 8px 8px 0 0;
   background: color-mix(in srgb, var(--side) 85%, transparent);
   cursor: pointer;
-}
-.res-group:first-of-type .res-scenario {
-  margin-top: 0;
 }
 .res-scenario:hover {
   background: var(--hover);
@@ -1227,4 +1227,37 @@ input.inline:hover {
 .tree-row:hover .os-marks.hover-only,
 .tree-row.sel .os-marks.hover-only {
   display: inline-flex;
+}
+
+/* The scenario being executed: a light runs around its outline. */
+@property --run-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.res-group.is-running::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  z-index: 2;
+  padding: 2px;
+  pointer-events: none;
+  border-radius: 10px;
+  background: conic-gradient(
+    from var(--run-angle),
+    transparent 0 55%,
+    color-mix(in srgb, var(--accent) 35%, transparent) 75%,
+    var(--accent) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: run-around 2.2s linear infinite;
+}
+@keyframes run-around {
+  to {
+    --run-angle: 360deg;
+  }
 }

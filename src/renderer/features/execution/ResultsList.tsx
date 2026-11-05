@@ -221,7 +221,10 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
           const folded = collapsed.has(sc.scenario.id);
           let previousScreen: string | undefined;
           return (
-            <section key={sc.scenario.id} className={`res-group st-${sc.status}`}>
+            <section
+              key={sc.scenario.id}
+              className={`res-group st-${sc.status} ${sc.rows.some((r) => r.status === 'running') ? 'is-running' : ''}`}
+            >
               <header
                 id={'res-' + sc.scenario.id}
                 className={`res-scenario ${project.selectedNodeId === sc.scenario.id ? 'sel' : ''} ${pulse === sc.scenario.id ? 'pulse' : ''}`}
