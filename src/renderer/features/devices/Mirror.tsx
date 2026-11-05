@@ -4,7 +4,8 @@ import { call, onEvent } from '../../shared/api';
 
 export type Gesture =
   | { kind: 'tap'; x: number; y: number }
-  | { kind: 'swipe'; direction: 'up' | 'down' | 'left' | 'right' };
+  | { kind: 'swipe'; direction: 'up' | 'down' | 'left' | 'right' }
+  | { kind: 'back' };
 
 /** Live phone screenshot with an optional component overlay and the tap pointer the engine reports. */
 export function Mirror({
@@ -29,7 +30,7 @@ export function Mirror({
   onSelect?: (c: Component) => void;
   onError?: (e: unknown) => void;
   onReady?: (ok: boolean) => void;
-  /** When set, the mirror is a remote control: a click taps, a drag swipes. Resolves once the phone has acted. */
+  /** When set, the mirror is a remote control: a click taps, a drag swipes, a right click goes back. Resolves once the phone has acted. */
   control?: (gesture: Gesture) => Promise<void>;
 }) {
   const [shot, setShot] = useState<string | null>(null);
@@ -101,6 +102,10 @@ export function Mirror({
             direction:
               Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up',
           };
+    void perform(gesture);
+  };
+  const perform = async (gesture: Gesture) => {
+    if (!control || acting) return;
     setActing(true);
     try {
       await control(gesture);
@@ -120,7 +125,12 @@ export function Mirror({
       {control && !image && (
         <div
           className="control-layer"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            void perform({ kind: 'back' });
+          }}
           onPointerDown={(e) => {
+            if (e.button !== 0) return;
             e.currentTarget.setPointerCapture(e.pointerId);
             start.current = fraction(e);
           }}

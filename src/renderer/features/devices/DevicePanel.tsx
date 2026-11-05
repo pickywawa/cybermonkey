@@ -1,8 +1,6 @@
 import {
   ArrowUpRight,
-  ArrowLeft,
   Crosshair,
-  Hand,
   MoreHorizontal,
   RefreshCw,
   Smartphone,
@@ -130,7 +128,6 @@ function DeviceCard({
   const [error, setError] = useState<unknown>(null);
   const [health, setHealth] = useState(false);
   const [historic, setHistoric] = useState<string | null>(null);
-  const [driving, setDriving] = useState(false);
   const live = !!device && device.status === 'ready' && !replay && !unreachable.has(deviceId!);
 
   // History: last completed step of this OS at the selected instant.
@@ -176,12 +173,13 @@ function DeviceCard({
   useEffect(() => {
     setScreen(null);
   }, [deviceId, replay]);
-  const driveOn = driving && live && run?.status !== 'running';
+  // The mirror is always a remote control, except while components are being picked or a run drives the phone.
+  const driveOn = live && !replay && !screen && run?.status !== 'running';
   /** Remote control: the same engine that plays the steps performs the gesture, one at a time. */
-  const act = async (g: Gesture | 'back') => {
+  const act = async (g: Gesture) => {
     if (!deviceId) return;
     const variant =
-      g === 'back'
+      g.kind === 'back'
         ? makeVariant({ operation: 'back' })
         : g.kind === 'tap'
           ? makeVariant({ operation: 'tap', point: { x: g.x, y: g.y } })
@@ -303,34 +301,6 @@ function DeviceCard({
             onError={setError}
             control={driveOn ? act : undefined}
           />
-          {live && !replay && (
-            <div className="row" style={{ padding: '6px 10px 0' }}>
-              <Button
-                size="sm"
-                variant={driving ? 'primary' : 'ghost'}
-                icon={<Hand size={13} />}
-                disabled={run?.status === 'running'}
-                title={t('dev.driveHint')}
-                onClick={() => {
-                  setDriving(!driving);
-                  setScreen(null);
-                }}
-              >
-                {t('dev.drive')}
-              </Button>
-              {driveOn && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<ArrowLeft size={13} />}
-                  onClick={() => void act('back').catch(setError)}
-                >
-                  {t('dev.back')}
-                </Button>
-              )}
-              {driveOn && <span className="note">{t('dev.driveHelp')}</span>}
-            </div>
-          )}
           {replay && !historic && (
             <div className="note" style={{ padding: 10 }}>
               {t('dev.noCapture')}
