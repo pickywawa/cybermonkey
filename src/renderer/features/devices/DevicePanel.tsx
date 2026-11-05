@@ -1,6 +1,8 @@
 import {
   ArrowUpRight,
+  ArrowLeft,
   Crosshair,
+  Hand,
   MoreHorizontal,
   RefreshCw,
   Smartphone,
@@ -10,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { Component, Device, Screen } from '../../../shared/domain/devices';
-import type { OS } from '../../../shared/domain/scenario';
+import { makeVariant, type OS } from '../../../shared/domain/scenario';
 import { campaignFrames } from '../../../shared/domain/campaign';
 import { call } from '../../shared/api';
 import { useT } from '../../shared/i18n';
@@ -21,7 +23,7 @@ import { Menu } from '../../shared/ui/overlays';
 import { useActions, useApp } from '../../app/store';
 import { describeDiagnostic } from './diagnostics';
 import { HealthDialog } from './HealthDialog';
-import { Mirror } from './Mirror';
+import { Mirror, type Gesture } from './Mirror';
 import { useWorkbench } from './workbench';
 
 /** One card per active OS: device picker, live mirror, component picking, history replay. */
@@ -128,6 +130,7 @@ function DeviceCard({
   const [error, setError] = useState<unknown>(null);
   const [health, setHealth] = useState(false);
   const [historic, setHistoric] = useState<string | null>(null);
+  const [driving, setDriving] = useState(false);
   const live = !!device && device.status === 'ready' && !replay && !unreachable.has(deviceId!);
 
   // History: last completed step of this OS at the selected instant.
@@ -173,6 +176,23 @@ function DeviceCard({
   useEffect(() => {
     setScreen(null);
   }, [deviceId, replay]);
+  const driveOn = driving && live && run?.status !== 'running';
+  /** Remote control: the same engine that plays the steps performs the gesture, one at a time. */
+  const act = async (g: Gesture | 'back') => {
+    if (!deviceId) return;
+    const variant =
+      g === 'back'
+        ? makeVariant({ operation: 'back' })
+        : g.kind === 'tap'
+          ? makeVariant({ operation: 'tap', point: { x: g.x, y: g.y } })
+          : makeVariant({ operation: 'swipe', direction: g.direction });
+    await call('devices.perform', {
+      deviceId,
+      projectId: project?.id,
+      variant,
+      kind: 'action',
+    });
+  };
   const select = (id: string) => void actions.updateProject({ deviceIds: { [os]: id } as never });
 
   return (
@@ -281,7 +301,36 @@ function DeviceCard({
             selectedId={picked?.os === os ? picked.component.id : undefined}
             onSelect={(c: Component) => screen && pick({ os, deviceId, component: c, screen })}
             onError={setError}
+            control={driveOn ? act : undefined}
           />
+          {live && !replay && (
+            <div className="row" style={{ padding: '6px 10px 0' }}>
+              <Button
+                size="sm"
+                variant={driving ? 'primary' : 'ghost'}
+                icon={<Hand size={13} />}
+                disabled={run?.status === 'running'}
+                title={t('dev.driveHint')}
+                onClick={() => {
+                  setDriving(!driving);
+                  setScreen(null);
+                }}
+              >
+                {t('dev.drive')}
+              </Button>
+              {driveOn && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={<ArrowLeft size={13} />}
+                  onClick={() => void act('back').catch(setError)}
+                >
+                  {t('dev.back')}
+                </Button>
+              )}
+              {driveOn && <span className="note">{t('dev.driveHelp')}</span>}
+            </div>
+          )}
           {replay && !historic && (
             <div className="note" style={{ padding: 10 }}>
               {t('dev.noCapture')}

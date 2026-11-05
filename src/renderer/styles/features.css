@@ -1289,3 +1289,18 @@ input.inline:hover {
 .session-list button.on {
   background: var(--sel);
 }
+
+/* Remote control: the mirror itself takes the clicks. */
+.mirror .control-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  cursor: pointer;
+  touch-action: none;
+}
+.mirror.control {
+  outline: 2px solid var(--accent);
+}
+.mirror.acting {
+  opacity: 0.8;
+}
