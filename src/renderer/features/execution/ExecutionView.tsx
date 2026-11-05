@@ -233,11 +233,16 @@ export function ExecutionView({ run }: { run: ReturnType<typeof useRun> }) {
       </div>
 
       {!campaign ? (
-        <div className="empty" style={{ flex: 1 }}>
-          <ListChecks size={26} />
-          <b>{t('camp.emptyTitle')}</b>
-          <span className="note">{t('camp.emptyHint')}</span>
-          <Button variant="primary" icon={<Plus size={14} />} onClick={() => void newCampaign()}>
+        <div className="camp-empty">
+          <EmptyIllustration />
+          <h2>{t('camp.emptyTitle')}</h2>
+          <p>{t('camp.emptyHint')}</p>
+          <Button
+            variant="primary"
+            icon={<Plus size={15} />}
+            onClick={() => void newCampaign()}
+            style={{ marginTop: 8, padding: '10px 20px' }}
+          >
             {t('camp.startNew')}
           </Button>
         </div>
@@ -303,5 +308,81 @@ export function ExecutionView({ run }: { run: ReturnType<typeof useRun> }) {
         </Modal>
       )}
     </div>
+  );
+}
+
+/** A phone whose steps are being ticked off: what a campaign gives you. */
+function EmptyIllustration() {
+  return (
+    <svg className="camp-art" viewBox="0 0 220 200" aria-hidden="true">
+      <defs>
+        <linearGradient id="ce-g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="var(--accent)" />
+          <stop offset="1" stopColor="var(--accent2)" />
+        </linearGradient>
+        <radialGradient id="ce-glow" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="var(--accent)" stopOpacity="0.28" />
+          <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle cx="110" cy="100" r="96" fill="url(#ce-glow)" />
+      <rect
+        x="62"
+        y="14"
+        width="96"
+        height="172"
+        rx="18"
+        fill="var(--side)"
+        stroke="var(--line)"
+        strokeWidth="2"
+      />
+      <rect x="92" y="21" width="36" height="5" rx="2.5" fill="var(--line)" />
+      {[0, 1, 2, 3].map((i) => (
+        <g key={i} transform={`translate(0 ${i * 30})`}>
+          <rect x="74" y="42" width="72" height="22" rx="7" fill="var(--hover)" />
+          <circle
+            cx="87"
+            cy="53"
+            r="6"
+            fill={['var(--ok)', 'var(--ok)', 'var(--danger)', 'none'][i]}
+            stroke={i === 3 ? 'var(--dim)' : 'none'}
+            strokeWidth="1.5"
+          />
+          {i < 2 && (
+            <path
+              d={`M84 53.5l2.4 2.4 4.2-4.6`}
+              fill="none"
+              stroke="#fff"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+          {i === 2 && (
+            <path d="M85 51l4 4m0-4l-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
+          )}
+          <rect
+            x="99"
+            y="49"
+            width={[34, 28, 36, 24][i]}
+            height="4"
+            rx="2"
+            fill="var(--dim)"
+            opacity="0.55"
+          />
+          <rect
+            x="99"
+            y="56"
+            width={[20, 26, 16, 22][i]}
+            height="3"
+            rx="1.5"
+            fill="var(--dim)"
+            opacity="0.3"
+          />
+        </g>
+      ))}
+      <circle cx="162" cy="148" r="26" fill="url(#ce-g)" />
+      <path d="M155 136v24l20-12z" fill="#fff" />
+    </svg>
   );
 }
