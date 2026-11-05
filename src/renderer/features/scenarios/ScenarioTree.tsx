@@ -136,7 +136,7 @@ export function ScenarioTree({
         <div
           id={'tree-' + n.id}
           className={`tree-row ${project.selectedNodeId === n.id ? 'sel' : ''} ${pulse === n.id ? 'pulse' : ''} ${row ? 'st-' + row.status : ''} k-${n.kind}`}
-          style={{ paddingLeft: mode === 'execution' ? 8 : 8 + depth * 14 }}
+          style={{ paddingLeft: 8 + depth * 14 }}
           onClick={() => {
             void actions.updateProject({ selectedNodeId: n.id });
             // In execution mode a click also shows the element's result, whichever tab was open.
@@ -146,26 +146,6 @@ export function ScenarioTree({
             }
           }}
         >
-          {mode === 'execution' && (
-            <span className="os-col" style={{ width: project.platforms.length * 21 - 9 }}>
-              {row && (
-                <span className="os-marks">
-                  {row.oses.map((os) => (
-                    <OsMark
-                      key={os}
-                      os={os}
-                      state={row.states[os]!}
-                      size={11}
-                      language={settings?.language}
-                    />
-                  ))}
-                </span>
-              )}
-            </span>
-          )}
-          {mode === 'execution' && depth > 0 && (
-            <span style={{ width: depth * 14, flex: 'none' }} />
-          )}
           {n.children.length ? (
             <button
               className="twisty"
@@ -214,6 +194,19 @@ export function ScenarioTree({
             <span className="gap" title={t('tree.missing', { os: missing.join(', ') })}>
               {missing.map((os) => (
                 <PlatformIcon key={os} os={os} size={11} />
+              ))}
+            </span>
+          )}
+          {mode === 'execution' && row && (
+            <span className="os-marks hover-only">
+              {row.oses.map((os) => (
+                <OsMark
+                  key={os}
+                  os={os}
+                  state={row.states[os]!}
+                  size={11}
+                  language={settings?.language}
+                />
               ))}
             </span>
           )}

@@ -64,6 +64,8 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
     [detail, project],
   );
   const [applying, setApplying] = useState(false);
+  const scrubbing = useRef(false);
+  const last = useRef<string | null>(null);
 
   const all = results.scenarios.flatMap((s) => s.rows);
   const q = query.trim().toLowerCase();
@@ -87,7 +89,6 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
     );
     if (!owner) return;
     exec.setCollapsed([owner.scenario.id], false);
-    if (owner.scenario.id !== focus.nodeId) exec.setOpen(focus.nodeId, true);
     setPulse(focus.nodeId);
     const timer = setTimeout(() => setPulse(null), 1500);
     const frame = requestAnimationFrame(() =>
@@ -130,9 +131,6 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
   };
   const countOf = (f: Filter) => all.filter((r) => matches(r, f)).length;
 
-  const visibleRows = groups.flatMap((g) =>
-    g.rows.map((row) => ({ row, scenarioId: g.sc.scenario.id })),
-  );
   /** Scrubbing the rail: show that step's capture on the device panel and bring the row into view. */
   const scrub = (row: ResultRow) => {
     exec.setCollapsed([row.scenarioId], false);
@@ -147,16 +145,36 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
     document.getElementById('res-' + row.node.id)?.scrollIntoView({ block: 'nearest' });
   };
 
+  const press = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!(e.target as HTMLElement).closest('.rail-seg')) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    scrubbing.current = true;
+    last.current = null;
+    scrubAt(e.clientY);
+  };
+  const scrubAt = (y: number) => {
+    const items = [...document.querySelectorAll<HTMLElement>('.res-item')];
+    let best: HTMLElement | undefined;
+    let gap = Infinity;
+    for (const el of items) {
+      const b = el.getBoundingClientRect();
+      const d = y < b.top ? b.top - y : y > b.bottom ? y - b.bottom : 0;
+      if (d < gap) ((gap = d), (best = el));
+    }
+    const row = best && all.find((r) => r.node.id === best!.dataset.id);
+    if (!row || last.current === row.node.id) return;
+    last.current = row.node.id;
+    scrub(row);
+  };
+
   return (
-    <div className="results-list">
-      {visibleRows.length > 0 && (
-        <StepRail
-          steps={visibleRows}
-          oses={project.platforms}
-          selected={project.selectedNodeId}
-          onScrub={scrub}
-        />
-      )}
+    <div
+      className="results-list"
+      onPointerDown={press}
+      onPointerMove={(e) => scrubbing.current && scrubAt(e.clientY)}
+      onPointerUp={() => (scrubbing.current = false)}
+      onPointerCancel={() => (scrubbing.current = false)}
+    >
       <div className="results-main">
         <div className="list-tools">
           <div className="search grow">
@@ -231,7 +249,15 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
                       0,
                     );
                   return (
-                    <div key={row.node.id}>
+                    <div key={row.node.id} className="res-item" data-id={row.node.id}>
+                      <div className="rail-seg" title={row.node.name}>
+                        {project.platforms.map((os) => (
+                          <i
+                            key={os}
+                            className={row.oses.includes(os) ? (row.states[os] ?? '') : 'na'}
+                          />
+                        ))}
+                      </div>
                       {screenChanged && row.screen && (
                         <div className="screen-sep">
                           <span>{row.screen.name}</span>
@@ -282,91 +308,6 @@ export function ResultsList({ detail }: { detail: CampaignDetail | null }) {
           );
         })}
         {!!all.length && !shownCount && <div className="empty note">{t('res.none')}</div>}
-      </div>
-    </div>
-  );
-}
-
-const RAIL_TONE: Record<string, string> = {
-  passed: 'ok',
-  failed: 'bad',
-  running: 'run',
-};
-
-/**
- * A vertical strip with one segment per step (green passed, red failed, white not run), one column per OS of the
- * project. Press and slide the mouse along it: each step you cross shows its capture on the device panel.
- */
-function StepRail({
-  steps,
-  oses,
-  selected,
-  onScrub,
-}: {
-  steps: { row: ResultRow; scenarioId: string }[];
-  oses: readonly string[];
-  selected: string | null | undefined;
-  onScrub(row: ResultRow): void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const last = useRef<string | null>(null);
-  const [hover, setHover] = useState<{ y: number; name: string } | null>(null);
-  const at = (clientY: number) => {
-    const box = ref.current?.getBoundingClientRect();
-    if (!box || !steps.length) return null;
-    const i = Math.min(
-      steps.length - 1,
-      Math.max(0, Math.floor(((clientY - box.top) / box.height) * steps.length)),
-    );
-    return { i, y: clientY - box.top, step: steps[i]! };
-  };
-  const go = (clientY: number, scrubbing: boolean) => {
-    const hit = at(clientY);
-    if (!hit) return;
-    setHover({ y: hit.y, name: hit.step.row.node.name });
-    if (scrubbing && last.current !== hit.step.row.node.id) {
-      last.current = hit.step.row.node.id;
-      onScrub(hit.step.row);
-    }
-  };
-  let previous: string | undefined;
-  return (
-    <div className="step-rail-wrap">
-      <div
-        ref={ref}
-        className="step-rail"
-        onPointerDown={(e) => {
-          e.currentTarget.setPointerCapture(e.pointerId);
-          last.current = null;
-          go(e.clientY, true);
-        }}
-        onPointerMove={(e) => go(e.clientY, e.buttons === 1)}
-        onPointerUp={() => (last.current = null)}
-        onPointerLeave={() => setHover(null)}
-      >
-        {steps.map(({ row, scenarioId }) => {
-          const gap = previous !== undefined && previous !== scenarioId;
-          previous = scenarioId;
-          return (
-            <div
-              key={row.node.id}
-              className={`rail-step ${gap ? 'gap' : ''} ${selected === row.node.id ? 'cur' : ''}`}
-            >
-              {oses.map((os) => (
-                <i
-                  key={os}
-                  className={RAIL_TONE[row.states[os as keyof typeof row.states] ?? ''] ?? ''}
-                  style={row.oses.includes(os as never) ? undefined : { visibility: 'hidden' }}
-                />
-              ))}
-            </div>
-          );
-        })}
-        {hover && (
-          <span className="rail-tip" style={{ top: hover.y }}>
-            {hover.name}
-          </span>
-        )}
       </div>
     </div>
   );
